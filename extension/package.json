@@ -1,16 +1,30 @@
 {
-  "name": "codus-extension",
+  "name": "codus",
   "displayName": "Codus",
-  "description": "Real-time collaborative coding with shared rooms, chat, and presence.",
-  "version": "0.1.2",
-  "publisher": "github-copilot",
+  "description": "Code together, live. Room-based collaboration for VS Code.",
+  "version": "0.2.0",
+  "publisher": "codus-dev",
   "license": "MIT",
   "engines": {
     "vscode": "^1.88.0"
   },
   "categories": [
-    "Other"
+    "Other",
+    "Programming Languages"
   ],
+  "keywords": [
+    "collaboration",
+    "collab",
+    "live share",
+    "pair programming",
+    "rooms",
+    "real-time",
+    "sync",
+    "cursor sharing",
+    "chat",
+    "multiplayer"
+  ],
+  "icon": "images/icon.png",
   "activationEvents": [
     "onStartupFinished",
     "onView:codus.sidebarView",
@@ -23,6 +37,7 @@
   "files": [
     "out/**",
     "media/**",
+    "images/icon.png",
     "src/webview/index.html",
     "README.md",
     "CHANGELOG.md",
@@ -48,7 +63,7 @@
         {
           "id": "codusSidebar",
           "title": "Codus",
-          "icon": "media/collab.svg"
+          "icon": "images/icon.png"
         }
       ]
     },

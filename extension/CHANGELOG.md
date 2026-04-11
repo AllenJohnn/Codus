@@ -1,6 +1,54 @@
+# [0.2.0] - 2026-04-11
+
+### Changed
+- Project renamed to **Codus** everywhere (extension, server, config, commands, UI, docs)
+- All settings, commands, and branding now use `codus` instead of `hive` or `collab`
+- Updated documentation and user-facing text for Codus
 
 
-# Codus Changelog
+
+
+# Changelog
+
+## [0.2.0]
+
+### Added
+- Configurable server URL via `codus.serverUrl` VS Code setting
+- Join and leave notifications (editor toast + system chat message)
+- Chat history persists when sidebar panel is hidden and reshown
+- Auto-reconnect on unexpected socket disconnect with rejoining last room
+- Reconnect banner shown in webview during reconnection attempt
+- File awareness: connected users list shows which file each user is editing
+- Read-only room mode toggle (room creator only)
+- Deep link room joining via `vscode://codus-dev.codus/join?room=XXXX`
+- Shareable room link copy button in room header
+- User follow mode: click a username to follow their cursor
+
+### Fixed
+- Disconnected state is now visually distinct from connected state
+- Guest name no longer shown in a floating full-width white box
+- Chat textarea is fixed height with no resize handle
+- Action buttons (paste selection, insert code block) moved above composer
+- Keyboard shortcut hint no longer truncates
+- Header square artifact removed
+- Consistent section padding throughout sidebar panel
+- All fonts now strictly 'Courier New' monospace with no fallback bleed
+
+### Changed
+- Extension renamed from "Collaborative Code Sharing" to "Codus"
+- Room ID display enlarged and made more prominent
+- UI redesigned with strict black/white monospace terminal aesthetic
+- Version bumped to 0.2.0
+
+## [0.1.2]
+
+### Added
+- Initial working release
+- Room create, join, and leave commands
+- Real-time code sync via Yjs + Socket.IO
+- Remote cursor decorations with per-user colors
+- Sidebar webview panel with room info, user list, and chat
+- Status bar room indicator
 
 All notable changes to this project are documented in this file.
 

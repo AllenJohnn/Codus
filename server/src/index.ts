@@ -9,6 +9,22 @@ const PORT = Number(process.env.PORT ?? 3000);
 const ROOM_MIN = 1000;
 const ROOM_MAX = 9999;
 
+const SOCKET_EVENTS = {
+  CREATE_ROOM: 'create-room',
+  JOIN_ROOM: 'join-room',
+  LEAVE_ROOM: 'leave-room',
+  CODE_CHANGE: 'code-change',
+  CURSOR_CHANGE: 'cursor-change',
+  CHAT_MESSAGE: 'chat-message',
+  CONNECTION_STATE: 'connection-state',
+  ROOM_SNAPSHOT: 'room-snapshot',
+  ROOM_STATE: 'room-state',
+  FILE_CHANGE: 'file-change',
+  SET_READONLY: 'set-readonly',
+  READONLY_CHANGED: 'readonly-changed',
+  ROOM_ERROR: 'room-error',
+} as const;
+
 type CursorPosition = {
   line: number;
   character: number;
@@ -19,6 +35,7 @@ type RoomUser = {
   name: string;
   color: string;
   cursor?: CursorPosition;
+  currentFile?: string;
 };
 
 type ChatMessage = {
@@ -29,11 +46,13 @@ type ChatMessage = {
   authorColor: string;
   text: string;
   timestamp: string;
+  system?: boolean;
 };
 
 type RoomStatePayload = {
   roomId: string;
   users: RoomUser[];
+  isReadOnly: boolean;
 };
 
 type ConnectionStatePayload = {
@@ -44,24 +63,28 @@ type ConnectionStatePayload = {
 };
 
 type ServerToClientEvents = {
-  'room-snapshot': (payload: { roomId: string; documentState: Uint8Array; users: RoomUser[] }) => void;
-  'room-state': (payload: RoomStatePayload) => void;
-  'code-change': (payload: { roomId: string; update: Uint8Array }) => void;
-  'cursor-change': (payload: { roomId: string; userId: string; cursor: CursorPosition | null }) => void;
-  'chat-message': (message: ChatMessage) => void;
-  'connection-state': (payload: ConnectionStatePayload) => void;
+  [SOCKET_EVENTS.ROOM_SNAPSHOT]: (payload: { roomId: string; documentState: Uint8Array; users: RoomUser[] }) => void;
+  [SOCKET_EVENTS.ROOM_STATE]: (payload: RoomStatePayload) => void;
+  [SOCKET_EVENTS.CODE_CHANGE]: (payload: { roomId: string; update: Uint8Array }) => void;
+  [SOCKET_EVENTS.CURSOR_CHANGE]: (payload: { roomId: string; userId: string; cursor: CursorPosition | null }) => void;
+  [SOCKET_EVENTS.CHAT_MESSAGE]: (message: ChatMessage) => void;
+  [SOCKET_EVENTS.CONNECTION_STATE]: (payload: ConnectionStatePayload) => void;
+  [SOCKET_EVENTS.READONLY_CHANGED]: (payload: { roomId: string; isReadOnly: boolean }) => void;
+  [SOCKET_EVENTS.ROOM_ERROR]: (payload: { roomId: string; code: 'READ_ONLY' | 'UNKNOWN'; message: string }) => void;
 };
 
 type ClientToServerEvents = {
-  'create-room': (payload: { userName: string }, callback: (response: { roomId: string }) => void) => void;
-  'join-room': (
-    payload: { roomId: string; userName: string; initialState?: Uint8Array },
-    callback: (response: { roomId: string; users: RoomUser[] }) => void,
+  [SOCKET_EVENTS.CREATE_ROOM]: (payload: { userName: string }, callback: (response: { roomId: string }) => void) => void;
+  [SOCKET_EVENTS.JOIN_ROOM]: (
+    payload: { roomId: string; userName: string; initialState?: Uint8Array; initialContent?: string },
+    callback: (response: { roomId: string; users: RoomUser[]; isReadOnly: boolean; isCreator: boolean }) => void,
   ) => void;
-  'leave-room': (payload: { roomId: string }) => void;
-  'code-change': (payload: { roomId: string; update: Uint8Array }) => void;
-  'cursor-change': (payload: { roomId: string; cursor: CursorPosition | null }) => void;
-  'chat-message': (payload: { roomId: string; text: string }) => void;
+  [SOCKET_EVENTS.LEAVE_ROOM]: (payload: { roomId: string }) => void;
+  [SOCKET_EVENTS.CODE_CHANGE]: (payload: { roomId: string; update: Uint8Array }) => void;
+  [SOCKET_EVENTS.CURSOR_CHANGE]: (payload: { roomId: string; cursor: CursorPosition | null }) => void;
+  [SOCKET_EVENTS.CHAT_MESSAGE]: (payload: { roomId: string; text: string }) => void;
+  [SOCKET_EVENTS.FILE_CHANGE]: (payload: { roomId: string; userId: string; fileName: string }) => void;
+  [SOCKET_EVENTS.SET_READONLY]: (payload: { roomId: string; isReadOnly: boolean }) => void;
 };
 
 type SocketData = {
@@ -75,6 +98,8 @@ type RoomData = {
   doc: Y.Doc;
   users: Map<string, RoomUser>;
   refs: number;
+  isReadOnly: boolean;
+  creatorId: string;
 };
 
 const app = express();
@@ -113,7 +138,7 @@ function buildColor(seed: string): string {
   return `hsl(${hash}, 75%, 55%)`;
 }
 
-function getOrCreateRoom(roomId: string): RoomData {
+function getOrCreateRoom(roomId: string, creatorId?: string): RoomData {
   const existing = rooms.get(roomId);
   if (existing) {
     return existing;
@@ -124,6 +149,8 @@ function getOrCreateRoom(roomId: string): RoomData {
     doc: new Y.Doc(),
     users: new Map<string, RoomUser>(),
     refs: 0,
+    isReadOnly: false,
+    creatorId: creatorId ?? '',
   };
 
   room.doc.getText('content');
@@ -136,16 +163,17 @@ function serializeUsers(room: RoomData): RoomUser[] {
 }
 
 function emitRoomState(room: RoomData): void {
-  io.to(room.id).emit('room-state', {
+  io.to(room.id).emit(SOCKET_EVENTS.ROOM_STATE, {
     roomId: room.id,
     users: serializeUsers(room),
+    isReadOnly: room.isReadOnly,
   });
 }
 
-function leaveCurrentRoom(socket: Socket<ClientToServerEvents, ServerToClientEvents, object, SocketData>): void {
+function leaveCurrentRoom(socket: Socket<ClientToServerEvents, ServerToClientEvents, object, SocketData>): RoomData | undefined {
   const currentRoomId = socket.data.roomId;
   if (!currentRoomId) {
-    return;
+    return undefined;
   }
 
   const room = rooms.get(currentRoomId);
@@ -153,7 +181,7 @@ function leaveCurrentRoom(socket: Socket<ClientToServerEvents, ServerToClientEve
   socket.data.roomId = undefined;
 
   if (!room) {
-    return;
+    return undefined;
   }
 
   room.users.delete(socket.id);
@@ -162,32 +190,37 @@ function leaveCurrentRoom(socket: Socket<ClientToServerEvents, ServerToClientEve
   if (room.users.size === 0 && room.refs === 0) {
     room.doc.destroy();
     rooms.delete(room.id);
-    return;
+    return room;
   }
 
   emitRoomState(room);
+  return room;
 }
 
 io.on('connection', (socket) => {
-  socket.emit('connection-state', {
+  socket.emit(SOCKET_EVENTS.CONNECTION_STATE, {
     status: 'connected',
     roomId: socket.data.roomId ?? null,
     userCount: 0,
   });
 
-  socket.on('create-room', (_payload, callback) => {
+  socket.on(SOCKET_EVENTS.CREATE_ROOM, (_payload, callback) => {
     const roomId = generateRoomId();
-    getOrCreateRoom(roomId);
+    getOrCreateRoom(roomId, socket.id);
     callback({ roomId });
   });
 
-  socket.on('join-room', (payload, callback) => {
+  socket.on(SOCKET_EVENTS.JOIN_ROOM, (payload, callback) => {
     const roomId = payload.roomId.trim().toUpperCase();
     const userName = payload.userName.trim() || `Guest-${socket.id.slice(0, 4)}`;
 
     leaveCurrentRoom(socket);
 
-    const room = getOrCreateRoom(roomId);
+    const room = getOrCreateRoom(roomId, socket.id);
+    if (!room.creatorId) {
+      room.creatorId = socket.id;
+    }
+
     socket.join(roomId);
 
     socket.data.roomId = roomId;
@@ -203,14 +236,24 @@ io.on('connection', (socket) => {
     room.users.set(socket.id, user);
     room.refs += 1;
 
-    if (payload.initialState && payload.initialState.length > 0) {
+    const sharedText = room.doc.getText('content');
+    const docIsEmpty = sharedText.length === 0;
+
+    if (docIsEmpty && payload.initialContent && payload.initialContent.length > 0) {
+      sharedText.insert(0, payload.initialContent);
+    } else if (payload.initialState && payload.initialState.length > 0) {
       Y.applyUpdate(room.doc, payload.initialState);
     }
 
     const users = serializeUsers(room);
-    callback({ roomId, users });
+    callback({
+      roomId,
+      users,
+      isReadOnly: room.isReadOnly,
+      isCreator: room.creatorId === socket.id,
+    });
 
-    socket.emit('room-snapshot', {
+    socket.emit(SOCKET_EVENTS.ROOM_SNAPSHOT, {
       roomId,
       documentState: Y.encodeStateAsUpdate(room.doc),
       users,
@@ -218,35 +261,44 @@ io.on('connection', (socket) => {
 
     emitRoomState(room);
 
-    socket.emit('connection-state', {
+    socket.emit(SOCKET_EVENTS.CONNECTION_STATE, {
       status: 'connected',
       roomId,
       userCount: users.length,
     });
   });
 
-  socket.on('leave-room', () => {
+  socket.on(SOCKET_EVENTS.LEAVE_ROOM, () => {
     const previousRoom = socket.data.roomId;
     leaveCurrentRoom(socket);
 
-    socket.emit('connection-state', {
+    socket.emit(SOCKET_EVENTS.CONNECTION_STATE, {
       status: 'disconnected',
       roomId: previousRoom ?? null,
       userCount: 0,
     });
   });
 
-  socket.on('code-change', (payload) => {
+  socket.on(SOCKET_EVENTS.CODE_CHANGE, (payload) => {
     const room = rooms.get(payload.roomId);
     if (!room) {
       return;
     }
 
+    if (room.isReadOnly) {
+      socket.emit(SOCKET_EVENTS.ROOM_ERROR, {
+        roomId: room.id,
+        code: 'READ_ONLY',
+        message: 'This room is in read-only mode. The host has locked editing.',
+      });
+      return;
+    }
+
     Y.applyUpdate(room.doc, payload.update);
-    socket.to(payload.roomId).emit('code-change', payload);
+    socket.to(payload.roomId).emit(SOCKET_EVENTS.CODE_CHANGE, payload);
   });
 
-  socket.on('cursor-change', (payload) => {
+  socket.on(SOCKET_EVENTS.CURSOR_CHANGE, (payload) => {
     const room = rooms.get(payload.roomId);
     if (!room) {
       return;
@@ -258,7 +310,7 @@ io.on('connection', (socket) => {
       room.users.set(socket.id, user);
     }
 
-    socket.to(payload.roomId).emit('cursor-change', {
+    socket.to(payload.roomId).emit(SOCKET_EVENTS.CURSOR_CHANGE, {
       roomId: payload.roomId,
       userId: socket.id,
       cursor: payload.cursor,
@@ -267,7 +319,41 @@ io.on('connection', (socket) => {
     emitRoomState(room);
   });
 
-  socket.on('chat-message', (payload) => {
+  socket.on(SOCKET_EVENTS.FILE_CHANGE, (payload) => {
+    const room = rooms.get(payload.roomId);
+    if (!room) {
+      return;
+    }
+
+    const user = room.users.get(socket.id);
+    if (!user) {
+      return;
+    }
+
+    user.currentFile = payload.fileName;
+    room.users.set(socket.id, user);
+    emitRoomState(room);
+  });
+
+  socket.on(SOCKET_EVENTS.SET_READONLY, (payload) => {
+    const room = rooms.get(payload.roomId);
+    if (!room) {
+      return;
+    }
+
+    if (room.creatorId !== socket.id) {
+      return;
+    }
+
+    room.isReadOnly = payload.isReadOnly;
+    io.to(room.id).emit(SOCKET_EVENTS.READONLY_CHANGED, {
+      roomId: room.id,
+      isReadOnly: room.isReadOnly,
+    });
+    emitRoomState(room);
+  });
+
+  socket.on(SOCKET_EVENTS.CHAT_MESSAGE, (payload) => {
     const room = rooms.get(payload.roomId);
     if (!room) {
       return;
@@ -288,7 +374,7 @@ io.on('connection', (socket) => {
       timestamp: new Date().toISOString(),
     };
 
-    io.to(payload.roomId).emit('chat-message', message);
+    io.to(payload.roomId).emit(SOCKET_EVENTS.CHAT_MESSAGE, message);
   });
 
   socket.on('disconnect', () => {
@@ -297,6 +383,5 @@ io.on('connection', (socket) => {
 });
 
 server.listen(PORT, () => {
-  // y-websocket dependency is included for interoperability with Yjs ecosystem clients.
-  console.log(`Collaboration server running on port ${PORT}`);
+  console.log(`Codus server running on port ${PORT}`);
 });

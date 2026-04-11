@@ -1,5 +1,5 @@
 {
-	"name": "my-collab-extension-server",
+	"name": "codus-server",
 	"version": "0.1.0",
 	"private": true,
 	"main": "dist/index.js",

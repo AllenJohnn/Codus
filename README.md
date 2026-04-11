@@ -1,10 +1,16 @@
-# My Collab Extension
 
-Real-time collaborative code sharing for VS Code with room-based sync, cursor presence, and chat.
+# Hive
+
+Real-time collaborative coding for VS Code with room-based sync, cursor presence, and chat.
 
 ## Project Structure
 
-my-collab-extension/
+# Codus
+
+Real-time collaborative coding for VS Code with room-based sync, cursor presence, and chat.
+
+
+Hive/
 |- extension/
 |  |- src/
 |  |  |- extension.ts
@@ -25,7 +31,7 @@ my-collab-extension/
 ## Features
 
 - Create room, join room, and leave room commands.
-- 6-character uppercase room IDs for easy verbal sharing.
+- 4-digit room IDs for easy verbal sharing.
 - Sidebar webview with:
 	- current room ID and copy action
 	- connected user list
