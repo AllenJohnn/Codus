@@ -5,3 +5,5 @@ dist
 .vscode-test
 extension/out
 server/dist
+*.vsix
+package.log
