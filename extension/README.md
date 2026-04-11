@@ -1,6 +1,8 @@
-# Collaborative Code Sharing (Extension)
 
-VS Code extension for room-based real-time collaboration with shared edits, cursors, and chat.
+
+# Codus (Extension)
+
+VS Code extension for room-based real-time collaborative coding with shared edits, cursors, and chat.
 
 ## Features
 
@@ -21,13 +23,13 @@ VS Code extension for room-based real-time collaboration with shared edits, curs
 
 ## Configuration
 
-- `collab.serverUrl` (default: `http://127.0.0.1:3000`)
+- `codus.serverUrl` (default: `http://127.0.0.1:3000`)
 
 ## Commands
 
-- `collab.createRoom`
-- `collab.joinRoom`
-- `collab.leaveRoom`
+- `codus.createRoom`
+- `codus.joinRoom`
+- `codus.leaveRoom`
 
 ## Development
 

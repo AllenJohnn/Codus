@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src {{cspSource}} 'unsafe-inline'; script-src 'nonce-{{nonce}}';" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Collaborative Room</title>
+  <title>Codus Room</title>
   <style>
     * {
       box-sizing: border-box;
@@ -39,43 +39,57 @@
       line-height: 1.4;
     }
 
+    input,
+    button,
+    textarea,
+    select {
+      font-family: 'Courier New', monospace;
+    }
+
     .panel {
       display: grid;
       gap: 8px;
       padding: 8px;
     }
 
+    .reconnect-banner {
+      display: none;
+      background: #1a1a1a;
+      color: #555;
+      font-size: 10px;
+      text-transform: lowercase;
+      padding: 2px 10px;
+      border: 1px solid #222;
+    }
+
+    .reconnect-banner.show {
+      display: block;
+    }
+
     .section {
       border: 1px solid var(--line);
-      padding: 8px;
+      padding: 12px 14px;
       display: grid;
-      gap: 6px;
+      gap: 8px;
     }
 
     .header {
       border: 1px solid var(--line);
-      border-bottom: 1px solid var(--line);
-      padding: 6px 8px;
+      padding: 12px 14px;
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 8px;
       color: var(--text-header);
       font-size: 9px;
       letter-spacing: 0.12em;
       text-transform: uppercase;
     }
 
-    .dot {
-      width: 6px;
-      height: 6px;
-      background: var(--text-strong);
-      border-radius: 0;
+    .header-sep {
+      width: 1px;
+      height: 10px;
+      background: #333;
       flex: 0 0 auto;
-    }
-
-    .dot.small {
-      width: 5px;
-      height: 5px;
     }
 
     .label {
@@ -85,14 +99,21 @@
       text-transform: uppercase;
     }
 
+    .room-block.disconnected {
+      opacity: 0.4;
+    }
+
     .room-id {
       color: var(--text-strong);
       font-size: 2rem;
       font-weight: 400;
       letter-spacing: 0.18em;
       line-height: 1;
-      margin-top: 2px;
-      margin-bottom: 2px;
+      margin: 0;
+    }
+
+    .room-id.disconnected {
+      color: #333;
     }
 
     .room-meta {
@@ -107,10 +128,28 @@
       display: inline-flex;
       align-items: center;
       gap: 5px;
-      color: #666;
       font-size: 10px;
       text-transform: lowercase;
       white-space: nowrap;
+    }
+
+    .status-dot {
+      width: 5px;
+      height: 5px;
+      background: #333;
+      flex: 0 0 auto;
+    }
+
+    .status-dot.connected {
+      background: #fff;
+    }
+
+    .status-text.disconnected {
+      color: #333;
+    }
+
+    .status-text.connected {
+      color: #888;
     }
 
     .status-right {
@@ -131,7 +170,6 @@
     }
 
     button {
-      font-family: 'Courier New', monospace;
       text-transform: lowercase;
       border: 1px solid #333;
       background: transparent;
@@ -156,6 +194,18 @@
       color: var(--danger-text);
     }
 
+    .readonly-btn {
+      border: 1px solid #2a2a2a;
+      color: #555;
+      font-size: 9px;
+      padding: 2px 6px;
+      display: none;
+    }
+
+    .readonly-btn.show {
+      display: inline-block;
+    }
+
     .create-btn {
       width: 100%;
       border: none;
@@ -170,19 +220,6 @@
       border: none;
       color: #000;
       background: #dcdcdc;
-    }
-
-    .identity {
-      border-left: 2px solid var(--text-muted);
-      padding-left: 8px;
-      color: var(--text-label);
-      font-size: 10px;
-      text-transform: lowercase;
-      min-height: 14px;
-    }
-
-    .identity-name {
-      color: var(--text-mid);
     }
 
     .row-flush {
@@ -200,7 +237,6 @@
       padding: 7px 8px;
       font-size: 10px;
       outline: none;
-      font-family: 'Courier New', monospace;
     }
 
     input::placeholder {
@@ -211,10 +247,6 @@
     input:focus {
       border-color: var(--line-active);
       color: var(--text-strong);
-    }
-
-    #displayName {
-      margin-bottom: 2px;
     }
 
     #joinCode {
@@ -231,6 +263,93 @@
       background: transparent;
     }
 
+    .identity {
+      border-left: 2px solid #222;
+      padding-left: 8px;
+      color: #444;
+      font-size: 10px;
+      text-transform: lowercase;
+      min-height: 14px;
+    }
+
+    .identity-name {
+      color: var(--text-mid);
+    }
+
+    #users {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: grid;
+      gap: 4px;
+    }
+
+    .user {
+      border: 1px solid var(--line);
+      padding: 5px 6px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 30px;
+      cursor: pointer;
+    }
+
+    .user.self {
+      cursor: default;
+    }
+
+    .user-main {
+      display: grid;
+      gap: 1px;
+      min-width: 0;
+      flex: 1;
+    }
+
+    .user-name-row {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      min-width: 0;
+    }
+
+    .user-name {
+      color: #aaa;
+      font-size: 11px;
+      text-transform: lowercase;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .user-file {
+      color: #444;
+      font-size: 9px;
+      text-transform: lowercase;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      max-width: 20ch;
+    }
+
+    .following-tag {
+      color: #555;
+      font-size: 9px;
+      text-transform: lowercase;
+    }
+
+    .you-tag {
+      color: #333;
+      font-size: 9px;
+      text-transform: lowercase;
+      margin-left: auto;
+    }
+
+    .waiting {
+      color: #2a2a2a;
+      font-size: 10px;
+      text-transform: lowercase;
+    }
+
     #chatLog {
       min-height: 56px;
       max-height: 220px;
@@ -242,34 +361,8 @@
       gap: 4px;
     }
 
-    .chat-tools {
-      display: flex;
-      justify-content: flex-start;
-      align-items: center;
-      gap: 6px;
-      margin-top: 2px;
-      margin-bottom: 2px;
-      flex-wrap: wrap;
-    }
-
-    .chat-helper {
-      margin-left: auto;
-      color: var(--text-muted);
-      font-size: 9px;
-      text-transform: lowercase;
-      letter-spacing: 0.04em;
-      white-space: nowrap;
-    }
-
-    .chat-insert {
-      border: 1px solid var(--line-input);
-      padding: 2px 6px;
-      font-size: 9px;
-      line-height: 1.4;
-    }
-
     .chat-empty {
-      color: var(--line-input);
+      color: #2a2a2a;
       font-size: 10px;
       text-transform: lowercase;
     }
@@ -284,6 +377,17 @@
     }
 
     .chat-message + .chat-message {
+      border-top: 1px dashed #222;
+      margin-top: 2px;
+    }
+
+    .chat-system {
+      text-align: center;
+      font-size: 10px;
+      color: #333;
+      font-style: italic;
+      padding-top: 4px;
+      padding-bottom: 2px;
       border-top: 1px dashed #222;
       margin-top: 2px;
     }
@@ -340,16 +444,56 @@
       color: #444;
     }
 
+    .insert-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .insert-label {
+      color: #333;
+      font-size: 9px;
+      text-transform: lowercase;
+    }
+
+    .chat-insert {
+      border: 1px solid #1e1e1e;
+      padding: 2px 6px;
+      font-size: 9px;
+      color: #555;
+      background: transparent;
+    }
+
     #chatInput {
-      border-right: none;
-      min-height: 52px;
-      resize: vertical;
+      border: 1px solid var(--line-input);
+      background: #000;
+      color: #888;
+      padding: 7px 8px;
+      font-size: 10px;
       line-height: 1.5;
+      height: 56px;
+      max-height: 56px;
+      min-height: 56px;
+      resize: none;
+      overflow-y: auto;
+      width: 100%;
+      outline: none;
+    }
+
+    #chatInput:focus {
+      border-color: #555;
+      color: #fff;
+    }
+
+    .chat-send-row {
+      display: flex;
+      gap: 0;
     }
 
     #chatForm button {
       border: none;
-      background: var(--text-strong);
+      background: #fff;
       color: #000;
       min-width: 52px;
       padding: 0 8px;
@@ -357,70 +501,47 @@
       letter-spacing: 0.04em;
     }
 
-    #users {
-      list-style: none;
-      margin: 0;
-      padding: 0;
-      display: grid;
-      gap: 4px;
-    }
-
-    .user {
-      border: 1px solid var(--line);
-      padding: 5px 6px;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      min-height: 22px;
-    }
-
-    .user-name {
-      color: #aaa;
-      font-size: 11px;
-      text-transform: lowercase;
-    }
-
-    .you-tag {
-      margin-left: auto;
-      color: var(--text-muted);
+    .hint {
+      text-align: right;
+      color: #2a2a2a;
       font-size: 9px;
+      white-space: pre;
       text-transform: lowercase;
-    }
-
-    .waiting {
-      color: var(--text-muted);
-      font-size: 10px;
-      text-transform: lowercase;
-      padding-left: 1px;
+      line-height: 1.4;
     }
   </style>
 </head>
 <body>
+  <div id="reconnectBanner" class="reconnect-banner">reconnecting...</div>
+
   <div class="panel">
     <header class="header">
-      <span class="dot"></span>
-      <span>COLLAB / COLLABORATIVE ROOM</span>
+      <span class="header-sep"></span>
+      <span>CODUS / COLLABORATIVE ROOM</span>
     </header>
 
     <section class="section">
       <div class="label">CURRENT ROOM</div>
-      <div id="roomId" class="room-id">—</div>
 
-      <div class="room-meta">
-        <div class="status-left">
-          <span class="dot small"></span>
-          <span id="connectionState">connected</span>
-        </div>
-        <div class="status-right">
-          <span id="userCount" class="user-badge">0 users</span>
-          <button id="copyRoomId" type="button">copy</button>
-          <button id="leaveRoom" type="button">leave</button>
+      <div id="roomBlock" class="room-block disconnected">
+        <div id="roomId" class="room-id disconnected">- - - -</div>
+
+        <div class="room-meta">
+          <div class="status-left">
+            <span id="statusDot" class="status-dot"></span>
+            <span id="connectionState" class="status-text disconnected">disconnected</span>
+          </div>
+          <div class="status-right">
+            <button id="readOnlyToggle" class="readonly-btn" type="button">lock room</button>
+            <span id="userCount" class="user-badge">0 users</span>
+            <button id="copyRoomId" type="button">copy</button>
+            <button id="copyRoomLink" type="button">link</button>
+            <button id="leaveRoom" type="button">leave</button>
+          </div>
         </div>
       </div>
 
       <button id="createRoom" class="create-btn" type="button">create room</button>
-
-      <input id="displayName" type="text" placeholder="your name" maxlength="40" />
 
       <form id="joinForm" class="row-flush">
         <input id="joinCode" type="text" placeholder="_ _ _ _" maxlength="4" inputmode="numeric" pattern="[0-9]{4}" />
@@ -433,21 +554,26 @@
     <section class="section">
       <div class="label">CONNECTED USERS</div>
       <ul id="users"></ul>
-      <div id="waitingText" class="waiting" hidden>— waiting for others</div>
+      <div id="waitingText" class="waiting" hidden>no other users</div>
     </section>
 
     <section class="section">
       <div class="label">CHAT</div>
       <div id="chatLog"></div>
-      <div class="chat-tools">
-        <button id="pasteSelectionCode" class="chat-insert" type="button">paste selection</button>
-        <button id="insertCodeBlock" class="chat-insert" type="button">insert code block</button>
-        <span class="chat-helper">alt+enter send | enter newline</span>
+
+      <div class="insert-row">
+        <span class="insert-label">insert:</span>
+        <button id="pasteSelectionCode" class="chat-insert" type="button">paste sel</button>
+        <button id="insertCodeBlock" class="chat-insert" type="button">code block</button>
       </div>
-      <form id="chatForm" class="row-flush">
+
+      <form id="chatForm" class="chat-send-row">
         <textarea id="chatInput" placeholder="share code, notes, fixes..." maxlength="4000"></textarea>
         <button type="submit">send</button>
       </form>
+
+      <div class="hint">alt+enter  send
+enter      newline</div>
     </section>
   </div>
 
@@ -462,12 +588,17 @@
       roomState: {
         roomId: null,
         users: [],
+        isReadOnly: false,
+        isCreator: false,
       },
       chatMessages: [],
       localUserName: 'Guest',
+      followedUserId: null,
     };
 
+    const roomBlockEl = document.getElementById('roomBlock');
     const roomIdEl = document.getElementById('roomId');
+    const statusDotEl = document.getElementById('statusDot');
     const connectionStateEl = document.getElementById('connectionState');
     const userCountEl = document.getElementById('userCount');
     const usersEl = document.getElementById('users');
@@ -479,22 +610,14 @@
     const localUserEl = document.getElementById('localUser');
     const joinFormEl = document.getElementById('joinForm');
     const joinCodeEl = document.getElementById('joinCode');
-    const displayNameEl = document.getElementById('displayName');
     const copyRoomIdButtonEl = document.getElementById('copyRoomId');
+    const copyRoomLinkButtonEl = document.getElementById('copyRoomLink');
     const waitingTextEl = document.getElementById('waitingText');
-
-    function getDisplayName() {
-      return displayNameEl.value.trim();
-    }
+    const reconnectBannerEl = document.getElementById('reconnectBanner');
+    const readOnlyToggleEl = document.getElementById('readOnlyToggle');
 
     document.getElementById('createRoom').addEventListener('click', () => {
-      const userName = getDisplayName();
-      if (!userName) {
-        displayNameEl.focus();
-        return;
-      }
-
-      vscode.postMessage({ type: 'createRoom', userName });
+      vscode.postMessage({ type: 'createRoom' });
     });
 
     joinCodeEl.addEventListener('input', () => {
@@ -511,13 +634,7 @@
         return;
       }
 
-      const userName = getDisplayName();
-      if (!userName) {
-        displayNameEl.focus();
-        return;
-      }
-
-      vscode.postMessage({ type: 'joinRoom', roomId: code, userName });
+      vscode.postMessage({ type: 'joinRoom', roomId: code });
     });
 
     copyRoomIdButtonEl.addEventListener('click', () => {
@@ -527,6 +644,20 @@
       setTimeout(() => {
         copyRoomIdButtonEl.textContent = previous || 'copy';
       }, 1200);
+    });
+
+    copyRoomLinkButtonEl.addEventListener('click', () => {
+      vscode.postMessage({ type: 'copyRoomLink' });
+      const previous = copyRoomLinkButtonEl.textContent;
+      copyRoomLinkButtonEl.textContent = 'copied!';
+      setTimeout(() => {
+        copyRoomLinkButtonEl.textContent = previous || 'link';
+      }, 1500);
+    });
+
+    readOnlyToggleEl.addEventListener('click', () => {
+      const nextValue = !state.roomState.isReadOnly;
+      vscode.postMessage({ type: 'setReadOnly', isReadOnly: nextValue });
     });
 
     document.getElementById('leaveRoom').addEventListener('click', () => {
@@ -583,44 +714,97 @@
       state.roomState = message.payload.roomState;
       state.chatMessages = message.payload.chatMessages;
       state.localUserName = message.payload.localUserName;
-      if (displayNameEl && !displayNameEl.value) {
-        displayNameEl.value = state.localUserName;
-      }
+      state.followedUserId = message.payload.followedUserId;
       render();
     });
 
     function render() {
-      roomIdEl.textContent = state.roomState.roomId ?? '—';
-      connectionStateEl.textContent = state.connectionState.status;
+      const connected = state.connectionState.status === 'connected';
+      const reconnecting = state.connectionState.status === 'reconnecting';
+      const roomId = state.roomState.roomId;
+
+      reconnectBannerEl.classList.toggle('show', reconnecting);
+
+      roomBlockEl.classList.toggle('disconnected', !connected);
+
+      if (connected && roomId) {
+        roomIdEl.textContent = roomId;
+        roomIdEl.classList.remove('disconnected');
+      } else {
+        roomIdEl.textContent = '- - - -';
+        roomIdEl.classList.add('disconnected');
+      }
+
+      statusDotEl.classList.toggle('connected', connected);
+      connectionStateEl.classList.toggle('connected', connected);
+      connectionStateEl.classList.toggle('disconnected', !connected);
+      connectionStateEl.textContent = connected ? 'connected' : 'disconnected';
+
       userCountEl.textContent = `${state.connectionState.userCount} user${state.connectionState.userCount === 1 ? '' : 's'}`;
       localUserEl.innerHTML = `you are <span class="identity-name">${escapeHtml(state.localUserName)}</span>`;
 
+      if (state.roomState.isCreator) {
+        readOnlyToggleEl.classList.add('show');
+        readOnlyToggleEl.textContent = state.roomState.isReadOnly ? 'unlock room' : 'lock room';
+      } else {
+        readOnlyToggleEl.classList.remove('show');
+      }
+
       usersEl.textContent = '';
+      const others = state.roomState.users.filter((user) => user.name !== state.localUserName);
+      waitingTextEl.hidden = others.length > 0;
+
       for (const user of state.roomState.users) {
         const li = document.createElement('li');
         li.className = 'user';
 
-        const swatch = document.createElement('span');
-        swatch.className = 'dot small';
+        const dot = document.createElement('span');
+        dot.className = 'status-dot connected';
 
-        const label = document.createElement('span');
-        label.className = 'user-name';
-        label.textContent = user.name + (user.cursor ? ` @ ${user.cursor.line + 1}:${user.cursor.character + 1}` : '');
+        const userMain = document.createElement('div');
+        userMain.className = 'user-main';
 
-        li.appendChild(swatch);
-        li.appendChild(label);
+        const nameRow = document.createElement('div');
+        nameRow.className = 'user-name-row';
+
+        const userName = document.createElement('span');
+        userName.className = 'user-name';
+        userName.textContent = user.name;
+
+        nameRow.appendChild(userName);
+
+        if (state.followedUserId === user.id && user.name !== state.localUserName) {
+          const following = document.createElement('span');
+          following.className = 'following-tag';
+          following.textContent = 'following';
+          nameRow.appendChild(following);
+        }
+
+        const fileName = document.createElement('div');
+        fileName.className = 'user-file';
+        fileName.textContent = (user.currentFile || 'no file').slice(0, 20);
+
+        userMain.appendChild(nameRow);
+        userMain.appendChild(fileName);
+
+        li.appendChild(dot);
+        li.appendChild(userMain);
 
         if (user.name === state.localUserName) {
+          li.classList.add('self');
           const youTag = document.createElement('span');
           youTag.className = 'you-tag';
           youTag.textContent = 'you';
           li.appendChild(youTag);
+        } else {
+          li.addEventListener('click', () => {
+            const next = state.followedUserId === user.id ? null : user.id;
+            vscode.postMessage({ type: 'followUser', userId: next });
+          });
         }
 
         usersEl.appendChild(li);
       }
-
-      waitingTextEl.hidden = state.roomState.users.length > 1;
 
       chatLogEl.textContent = '';
       if (state.chatMessages.length === 0) {
@@ -632,6 +816,15 @@
 
       for (let index = 0; index < state.chatMessages.length; index += 1) {
         const message = state.chatMessages[index];
+
+        if (message.system) {
+          const system = document.createElement('div');
+          system.className = 'chat-system';
+          system.textContent = message.text;
+          chatLogEl.appendChild(system);
+          continue;
+        }
+
         const line = document.createElement('div');
         line.className = 'chat-message';
 
@@ -651,7 +844,6 @@
         meta.appendChild(metaRight);
 
         const body = document.createElement('div');
-
         const segments = splitMessageSegments(message.text);
         for (const segment of segments) {
           if (segment.type === 'code') {

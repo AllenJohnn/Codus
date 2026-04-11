@@ -1,6 +1,25 @@
-# Changelog
+
+
+# Codus Changelog
 
 All notable changes to this project are documented in this file.
+
+## [0.1.2] - 2026-04-11
+
+### Added
+- Chat collaboration improvements for code sharing:
+	- Alt+Enter send in multiline composer
+	- Message separators and per-message metadata for rapid-chat readability
+	- Paste active editor selection into chat as fenced code
+	- Copy action for individual rendered code blocks
+
+### Fixed
+- Recovered core extension source/config files that were accidentally zeroed.
+- Restored workspace manifests/config needed for stable builds.
+
+### Changed
+- Cleaned repository by removing generated VSIX/log artifacts from tracking.
+- Updated ignore rules to prevent accidental recommit of generated release files.
 
 ## [0.1.1] - 2026-04-11
 

@@ -7,30 +7,37 @@ type WebviewCommand =
   | { type: 'createRoom'; userName?: string }
   | { type: 'joinRoom'; roomId: string; userName?: string }
   | { type: 'copyRoomId' }
+  | { type: 'copyRoomLink' }
   | { type: 'leaveRoom' }
   | { type: 'sendChatMessage'; text: string }
   | { type: 'insertSelectionAsCode' }
-  | { type: 'copyCode'; text: string };
+  | { type: 'copyCode'; text: string }
+  | { type: 'setReadOnly'; isReadOnly: boolean }
+  | { type: 'followUser'; userId: string | null };
 
 type WebviewState = {
   connectionState: ConnectionStatePayload;
   roomState: RoomStatePayload;
   chatMessages: ChatMessage[];
   localUserName: string;
+  followedUserId: string | null;
 };
 
 export interface PanelBridge {
   onCreateRoom: (userName?: string) => Promise<void>;
   onJoinRoom: (roomId: string, userName?: string) => Promise<void>;
   onCopyRoomId: (roomId: string | null) => Promise<void>;
+  onCopyRoomLink: (roomId: string | null) => Promise<void>;
   onLeaveRoom: () => Promise<void>;
   onSendChatMessage: (text: string) => Promise<void>;
   onInsertSelectionAsCode: () => Promise<void>;
   onCopyCode: (text: string) => Promise<void>;
+  onSetReadOnly: (isReadOnly: boolean) => Promise<void>;
+  onFollowUser: (userId: string | null) => Promise<void>;
 }
 
 export class CollaborativePanelProvider implements vscode.WebviewViewProvider {
-  public static readonly viewType = 'collab.sidebarView';
+  public static readonly viewType = 'codus.sidebarView';
 
   private view: vscode.WebviewView | null = null;
 
@@ -43,9 +50,12 @@ export class CollaborativePanelProvider implements vscode.WebviewViewProvider {
     roomState: {
       roomId: null,
       users: [],
+      isReadOnly: false,
+      isCreator: false,
     },
     chatMessages: [],
     localUserName: 'Guest',
+    followedUserId: null,
   };
 
   public constructor(
@@ -75,6 +85,9 @@ export class CollaborativePanelProvider implements vscode.WebviewViewProvider {
           case 'copyRoomId':
             await this.bridge.onCopyRoomId(this.state.roomState.roomId);
             return;
+          case 'copyRoomLink':
+            await this.bridge.onCopyRoomLink(this.state.roomState.roomId);
+            return;
           case 'leaveRoom':
             await this.bridge.onLeaveRoom();
             return;
@@ -86,6 +99,14 @@ export class CollaborativePanelProvider implements vscode.WebviewViewProvider {
             return;
           case 'copyCode':
             await this.bridge.onCopyCode(message.text);
+            return;
+          case 'setReadOnly':
+            await this.bridge.onSetReadOnly(message.isReadOnly);
+            return;
+          case 'followUser':
+            this.state.followedUserId = message.userId;
+            this.pushState();
+            await this.bridge.onFollowUser(message.userId);
             return;
           default:
             return;
@@ -104,24 +125,50 @@ export class CollaborativePanelProvider implements vscode.WebviewViewProvider {
     this.pushState();
   }
 
+  public setFollowedUserId(userId: string | null): void {
+    this.state.followedUserId = userId;
+    this.pushState();
+  }
+
   public updateConnectionState(connectionState: ConnectionStatePayload): void {
     this.state.connectionState = connectionState;
     this.pushState();
   }
 
   public updateRoomState(roomState: RoomStatePayload): void {
-    this.state.roomState = roomState;
+    this.state.roomState = {
+      ...this.state.roomState,
+      ...roomState,
+    };
+
     this.state.connectionState = {
       ...this.state.connectionState,
       roomId: roomState.roomId,
       userCount: roomState.users.length,
     };
+
     this.pushState();
   }
 
   public pushChatMessage(message: ChatMessage): void {
-    this.state.chatMessages = [...this.state.chatMessages, message].slice(-100);
+    this.state.chatMessages = [...this.state.chatMessages, message].slice(-200);
     this.pushState();
+  }
+
+  public pushSystemMessage(text: string): void {
+    const roomId = this.state.roomState.roomId ?? '';
+    const systemMessage: ChatMessage = {
+      id: `system-${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      roomId,
+      authorId: 'system',
+      authorName: 'system',
+      authorColor: '#333',
+      text,
+      timestamp: new Date().toISOString(),
+      system: true,
+    };
+
+    this.pushChatMessage(systemMessage);
   }
 
   public insertComposerText(text: string): void {

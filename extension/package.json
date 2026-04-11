@@ -1,8 +1,8 @@
 {
-  "name": "my-collab-extension-extension",
-  "displayName": "Collaborative Code Sharing",
-  "description": "Real-time collaborative code sharing with shared rooms and chat.",
-  "version": "0.1.1",
+  "name": "codus-extension",
+  "displayName": "Codus",
+  "description": "Real-time collaborative coding with shared rooms, chat, and presence.",
+  "version": "0.1.2",
   "publisher": "github-copilot",
   "license": "MIT",
   "engines": {
@@ -13,10 +13,11 @@
   ],
   "activationEvents": [
     "onStartupFinished",
-    "onView:collab.sidebarView",
-    "onCommand:collab.createRoom",
-    "onCommand:collab.joinRoom",
-    "onCommand:collab.leaveRoom"
+    "onView:codus.sidebarView",
+    "onCommand:codus.createRoom",
+    "onCommand:codus.joinRoom",
+    "onCommand:codus.leaveRoom",
+    "onUri"
   ],
   "main": "./out/extension.js",
   "files": [
@@ -30,46 +31,47 @@
   "contributes": {
     "commands": [
       {
-        "command": "collab.createRoom",
+        "command": "codus.createRoom",
         "title": "Create Room"
       },
       {
-        "command": "collab.joinRoom",
+        "command": "codus.joinRoom",
         "title": "Join Room"
       },
       {
-        "command": "collab.leaveRoom",
+        "command": "codus.leaveRoom",
         "title": "Leave Room"
       }
     ],
     "viewsContainers": {
       "activitybar": [
         {
-          "id": "collabSidebar",
-          "title": "Collab",
+          "id": "codusSidebar",
+          "title": "Codus",
           "icon": "media/collab.svg"
         }
       ]
     },
     "views": {
-      "collabSidebar": [
+      "codusSidebar": [
         {
           "type": "webview",
-          "id": "collab.sidebarView",
-          "name": "Collaborative Room"
+          "id": "codus.sidebarView",
+          "name": "Codus Room"
         }
       ]
     },
     "configuration": {
-      "title": "Collab",
+      "title": "Codus",
       "properties": {
-        "collab.serverUrl": {
+        "codus.serverUrl": {
           "type": "string",
           "default": "http://127.0.0.1:3000",
-          "description": "Socket.IO server URL for collaboration rooms."
+          "description": "URL of the Codus collaboration server"
         }
       }
-    }
+    },
+    "uriHandler": true
   },
   "scripts": {
     "vscode:prepublish": "npm run build",
