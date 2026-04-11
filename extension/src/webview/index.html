@@ -1,0 +1,748 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src {{cspSource}} 'unsafe-inline'; script-src 'nonce-{{nonce}}';" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Collaborative Room</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      border-radius: 0;
+      font-family: 'Courier New', monospace;
+    }
+
+    :root {
+      --panel: #111;
+      --surface-0: #000;
+      --surface-1: #0a0a0a;
+      --text-strong: #fff;
+      --text-mid: #888;
+      --text-label: #444;
+      --text-muted: #333;
+      --text-header: #555;
+      --line: #222;
+      --line-input: #2a2a2a;
+      --line-active: #555;
+      --danger-line: #500;
+      --danger-text: #c55;
+    }
+
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      background: var(--panel);
+      color: var(--text-mid);
+      font-family: 'Courier New', monospace;
+      font-size: 11px;
+      line-height: 1.4;
+    }
+
+    .panel {
+      display: grid;
+      gap: 8px;
+      padding: 8px;
+    }
+
+    .section {
+      border: 1px solid var(--line);
+      padding: 8px;
+      display: grid;
+      gap: 6px;
+    }
+
+    .header {
+      border: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+      padding: 6px 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--text-header);
+      font-size: 9px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    .dot {
+      width: 6px;
+      height: 6px;
+      background: var(--text-strong);
+      border-radius: 0;
+      flex: 0 0 auto;
+    }
+
+    .dot.small {
+      width: 5px;
+      height: 5px;
+    }
+
+    .label {
+      color: var(--text-label);
+      font-size: 9px;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+    }
+
+    .room-id {
+      color: var(--text-strong);
+      font-size: 2rem;
+      font-weight: 400;
+      letter-spacing: 0.18em;
+      line-height: 1;
+      margin-top: 2px;
+      margin-bottom: 2px;
+    }
+
+    .room-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      min-height: 20px;
+    }
+
+    .status-left {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      color: #666;
+      font-size: 10px;
+      text-transform: lowercase;
+      white-space: nowrap;
+    }
+
+    .status-right {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      justify-content: flex-end;
+      flex-wrap: wrap;
+    }
+
+    .user-badge {
+      border: 1px solid var(--line);
+      color: #666;
+      padding: 1px 5px;
+      font-size: 10px;
+      white-space: nowrap;
+      text-transform: lowercase;
+    }
+
+    button {
+      font-family: 'Courier New', monospace;
+      text-transform: lowercase;
+      border: 1px solid #333;
+      background: transparent;
+      color: var(--text-mid);
+      padding: 4px 6px;
+      font-size: 10px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      border-color: #555;
+      color: var(--text-strong);
+    }
+
+    #leaveRoom {
+      border-color: var(--danger-line);
+      color: var(--danger-text);
+    }
+
+    #leaveRoom:hover {
+      border-color: var(--danger-line);
+      color: var(--danger-text);
+    }
+
+    .create-btn {
+      width: 100%;
+      border: none;
+      background: var(--text-strong);
+      color: #000;
+      font-size: 11px;
+      letter-spacing: 0.08em;
+      padding: 8px;
+    }
+
+    .create-btn:hover {
+      border: none;
+      color: #000;
+      background: #dcdcdc;
+    }
+
+    .identity {
+      border-left: 2px solid var(--text-muted);
+      padding-left: 8px;
+      color: var(--text-label);
+      font-size: 10px;
+      text-transform: lowercase;
+      min-height: 14px;
+    }
+
+    .identity-name {
+      color: var(--text-mid);
+    }
+
+    .row-flush {
+      display: flex;
+      align-items: stretch;
+      gap: 0;
+    }
+
+    input {
+      width: 100%;
+      min-width: 0;
+      border: 1px solid var(--line-input);
+      background: var(--surface-0);
+      color: var(--text-mid);
+      padding: 7px 8px;
+      font-size: 10px;
+      outline: none;
+      font-family: 'Courier New', monospace;
+    }
+
+    input::placeholder {
+      color: var(--text-muted);
+      opacity: 1;
+    }
+
+    input:focus {
+      border-color: var(--line-active);
+      color: var(--text-strong);
+    }
+
+    #displayName {
+      margin-bottom: 2px;
+    }
+
+    #joinCode {
+      border-right: none;
+      text-align: center;
+      letter-spacing: 0.2em;
+    }
+
+    #joinForm button {
+      border: 1px solid var(--line-input);
+      color: var(--text-mid);
+      min-width: 52px;
+      padding: 0 8px;
+      background: transparent;
+    }
+
+    #chatLog {
+      min-height: 56px;
+      max-height: 220px;
+      overflow-y: auto;
+      background: var(--surface-1);
+      border: 1px solid #1a1a1a;
+      padding: 8px;
+      display: grid;
+      gap: 4px;
+    }
+
+    .chat-tools {
+      display: flex;
+      justify-content: flex-start;
+      align-items: center;
+      gap: 6px;
+      margin-top: 2px;
+      margin-bottom: 2px;
+      flex-wrap: wrap;
+    }
+
+    .chat-helper {
+      margin-left: auto;
+      color: var(--text-muted);
+      font-size: 9px;
+      text-transform: lowercase;
+      letter-spacing: 0.04em;
+      white-space: nowrap;
+    }
+
+    .chat-insert {
+      border: 1px solid var(--line-input);
+      padding: 2px 6px;
+      font-size: 9px;
+      line-height: 1.4;
+    }
+
+    .chat-empty {
+      color: var(--line-input);
+      font-size: 10px;
+      text-transform: lowercase;
+    }
+
+    .chat-message {
+      font-size: 10px;
+      line-height: 1.6;
+      color: var(--text-mid);
+      white-space: pre-wrap;
+      word-break: break-word;
+      padding-top: 6px;
+    }
+
+    .chat-message + .chat-message {
+      border-top: 1px dashed #222;
+      margin-top: 2px;
+    }
+
+    .chat-meta {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 2px;
+      color: #555;
+      font-size: 9px;
+      text-transform: lowercase;
+    }
+
+    .chat-line {
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    .chat-code {
+      margin-top: 3px;
+      margin-bottom: 3px;
+      border: 1px solid #1f1f1f;
+      background: #000;
+      color: #aaa;
+      padding: 6px;
+      white-space: pre-wrap;
+      overflow-x: auto;
+    }
+
+    .chat-code-wrap {
+      display: grid;
+      gap: 2px;
+    }
+
+    .chat-code-actions {
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    .chat-copy {
+      border: 1px solid #2a2a2a;
+      padding: 1px 5px;
+      font-size: 9px;
+      color: #777;
+    }
+
+    .chat-author {
+      color: #666;
+    }
+
+    .chat-index {
+      color: #444;
+    }
+
+    #chatInput {
+      border-right: none;
+      min-height: 52px;
+      resize: vertical;
+      line-height: 1.5;
+    }
+
+    #chatForm button {
+      border: none;
+      background: var(--text-strong);
+      color: #000;
+      min-width: 52px;
+      padding: 0 8px;
+      font-size: 10px;
+      letter-spacing: 0.04em;
+    }
+
+    #users {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: grid;
+      gap: 4px;
+    }
+
+    .user {
+      border: 1px solid var(--line);
+      padding: 5px 6px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      min-height: 22px;
+    }
+
+    .user-name {
+      color: #aaa;
+      font-size: 11px;
+      text-transform: lowercase;
+    }
+
+    .you-tag {
+      margin-left: auto;
+      color: var(--text-muted);
+      font-size: 9px;
+      text-transform: lowercase;
+    }
+
+    .waiting {
+      color: var(--text-muted);
+      font-size: 10px;
+      text-transform: lowercase;
+      padding-left: 1px;
+    }
+  </style>
+</head>
+<body>
+  <div class="panel">
+    <header class="header">
+      <span class="dot"></span>
+      <span>COLLAB / COLLABORATIVE ROOM</span>
+    </header>
+
+    <section class="section">
+      <div class="label">CURRENT ROOM</div>
+      <div id="roomId" class="room-id">—</div>
+
+      <div class="room-meta">
+        <div class="status-left">
+          <span class="dot small"></span>
+          <span id="connectionState">connected</span>
+        </div>
+        <div class="status-right">
+          <span id="userCount" class="user-badge">0 users</span>
+          <button id="copyRoomId" type="button">copy</button>
+          <button id="leaveRoom" type="button">leave</button>
+        </div>
+      </div>
+
+      <button id="createRoom" class="create-btn" type="button">create room</button>
+
+      <input id="displayName" type="text" placeholder="your name" maxlength="40" />
+
+      <form id="joinForm" class="row-flush">
+        <input id="joinCode" type="text" placeholder="_ _ _ _" maxlength="4" inputmode="numeric" pattern="[0-9]{4}" />
+        <button type="submit">join</button>
+      </form>
+
+      <div id="localUser" class="identity">you are <span class="identity-name">guest</span></div>
+    </section>
+
+    <section class="section">
+      <div class="label">CONNECTED USERS</div>
+      <ul id="users"></ul>
+      <div id="waitingText" class="waiting" hidden>— waiting for others</div>
+    </section>
+
+    <section class="section">
+      <div class="label">CHAT</div>
+      <div id="chatLog"></div>
+      <div class="chat-tools">
+        <button id="pasteSelectionCode" class="chat-insert" type="button">paste selection</button>
+        <button id="insertCodeBlock" class="chat-insert" type="button">insert code block</button>
+        <span class="chat-helper">alt+enter send | enter newline</span>
+      </div>
+      <form id="chatForm" class="row-flush">
+        <textarea id="chatInput" placeholder="share code, notes, fixes..." maxlength="4000"></textarea>
+        <button type="submit">send</button>
+      </form>
+    </section>
+  </div>
+
+  <script nonce="{{nonce}}">
+    const vscode = acquireVsCodeApi();
+    const state = {
+      connectionState: {
+        status: 'disconnected',
+        roomId: null,
+        userCount: 0,
+      },
+      roomState: {
+        roomId: null,
+        users: [],
+      },
+      chatMessages: [],
+      localUserName: 'Guest',
+    };
+
+    const roomIdEl = document.getElementById('roomId');
+    const connectionStateEl = document.getElementById('connectionState');
+    const userCountEl = document.getElementById('userCount');
+    const usersEl = document.getElementById('users');
+    const chatLogEl = document.getElementById('chatLog');
+    const chatFormEl = document.getElementById('chatForm');
+    const chatInputEl = document.getElementById('chatInput');
+    const insertCodeBlockEl = document.getElementById('insertCodeBlock');
+    const pasteSelectionCodeEl = document.getElementById('pasteSelectionCode');
+    const localUserEl = document.getElementById('localUser');
+    const joinFormEl = document.getElementById('joinForm');
+    const joinCodeEl = document.getElementById('joinCode');
+    const displayNameEl = document.getElementById('displayName');
+    const copyRoomIdButtonEl = document.getElementById('copyRoomId');
+    const waitingTextEl = document.getElementById('waitingText');
+
+    function getDisplayName() {
+      return displayNameEl.value.trim();
+    }
+
+    document.getElementById('createRoom').addEventListener('click', () => {
+      const userName = getDisplayName();
+      if (!userName) {
+        displayNameEl.focus();
+        return;
+      }
+
+      vscode.postMessage({ type: 'createRoom', userName });
+    });
+
+    joinCodeEl.addEventListener('input', () => {
+      const digitsOnly = joinCodeEl.value.replace(/\D/g, '').slice(0, 4);
+      if (joinCodeEl.value !== digitsOnly) {
+        joinCodeEl.value = digitsOnly;
+      }
+    });
+
+    joinFormEl.addEventListener('submit', (event) => {
+      event.preventDefault();
+      const code = joinCodeEl.value.replace(/\D/g, '').slice(0, 4);
+      if (code.length !== 4) {
+        return;
+      }
+
+      const userName = getDisplayName();
+      if (!userName) {
+        displayNameEl.focus();
+        return;
+      }
+
+      vscode.postMessage({ type: 'joinRoom', roomId: code, userName });
+    });
+
+    copyRoomIdButtonEl.addEventListener('click', () => {
+      vscode.postMessage({ type: 'copyRoomId' });
+      const previous = copyRoomIdButtonEl.textContent;
+      copyRoomIdButtonEl.textContent = 'copied';
+      setTimeout(() => {
+        copyRoomIdButtonEl.textContent = previous || 'copy';
+      }, 1200);
+    });
+
+    document.getElementById('leaveRoom').addEventListener('click', () => {
+      vscode.postMessage({ type: 'leaveRoom' });
+    });
+
+    chatFormEl.addEventListener('submit', (event) => {
+      event.preventDefault();
+      const value = chatInputEl.value.trim();
+      if (!value) {
+        return;
+      }
+      vscode.postMessage({ type: 'sendChatMessage', text: value });
+      chatInputEl.value = '';
+    });
+
+    chatInputEl.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter') {
+        return;
+      }
+
+      if (event.altKey) {
+        event.preventDefault();
+        chatFormEl.requestSubmit();
+      }
+    });
+
+    insertCodeBlockEl.addEventListener('click', () => {
+      const template = '```\n\n```';
+      const caret = insertAtCursor(template);
+      chatInputEl.focus();
+      chatInputEl.setSelectionRange(caret, caret);
+    });
+
+    pasteSelectionCodeEl.addEventListener('click', () => {
+      vscode.postMessage({ type: 'insertSelectionAsCode' });
+      chatInputEl.focus();
+    });
+
+    window.addEventListener('message', (event) => {
+      const message = event.data;
+      if (message && message.type === 'insertComposerText' && typeof message.text === 'string') {
+        const caret = insertAtCursor(message.text);
+        chatInputEl.focus();
+        chatInputEl.setSelectionRange(caret, caret);
+        return;
+      }
+
+      if (!message || message.type !== 'state') {
+        return;
+      }
+
+      state.connectionState = message.payload.connectionState;
+      state.roomState = message.payload.roomState;
+      state.chatMessages = message.payload.chatMessages;
+      state.localUserName = message.payload.localUserName;
+      if (displayNameEl && !displayNameEl.value) {
+        displayNameEl.value = state.localUserName;
+      }
+      render();
+    });
+
+    function render() {
+      roomIdEl.textContent = state.roomState.roomId ?? '—';
+      connectionStateEl.textContent = state.connectionState.status;
+      userCountEl.textContent = `${state.connectionState.userCount} user${state.connectionState.userCount === 1 ? '' : 's'}`;
+      localUserEl.innerHTML = `you are <span class="identity-name">${escapeHtml(state.localUserName)}</span>`;
+
+      usersEl.textContent = '';
+      for (const user of state.roomState.users) {
+        const li = document.createElement('li');
+        li.className = 'user';
+
+        const swatch = document.createElement('span');
+        swatch.className = 'dot small';
+
+        const label = document.createElement('span');
+        label.className = 'user-name';
+        label.textContent = user.name + (user.cursor ? ` @ ${user.cursor.line + 1}:${user.cursor.character + 1}` : '');
+
+        li.appendChild(swatch);
+        li.appendChild(label);
+
+        if (user.name === state.localUserName) {
+          const youTag = document.createElement('span');
+          youTag.className = 'you-tag';
+          youTag.textContent = 'you';
+          li.appendChild(youTag);
+        }
+
+        usersEl.appendChild(li);
+      }
+
+      waitingTextEl.hidden = state.roomState.users.length > 1;
+
+      chatLogEl.textContent = '';
+      if (state.chatMessages.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'chat-empty';
+        empty.textContent = 'no messages yet';
+        chatLogEl.appendChild(empty);
+      }
+
+      for (let index = 0; index < state.chatMessages.length; index += 1) {
+        const message = state.chatMessages[index];
+        const line = document.createElement('div');
+        line.className = 'chat-message';
+
+        const meta = document.createElement('div');
+        meta.className = 'chat-meta';
+
+        const author = document.createElement('span');
+        author.className = 'chat-author';
+        author.textContent = `${message.authorName}: `;
+
+        const metaRight = document.createElement('span');
+        metaRight.className = 'chat-index';
+        const time = new Date(message.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        metaRight.textContent = `#${index + 1} ${time}`;
+
+        meta.appendChild(author);
+        meta.appendChild(metaRight);
+
+        const body = document.createElement('div');
+
+        const segments = splitMessageSegments(message.text);
+        for (const segment of segments) {
+          if (segment.type === 'code') {
+            const codeWrap = document.createElement('div');
+            codeWrap.className = 'chat-code-wrap';
+
+            const codeActions = document.createElement('div');
+            codeActions.className = 'chat-code-actions';
+
+            const copyButton = document.createElement('button');
+            copyButton.type = 'button';
+            copyButton.className = 'chat-copy';
+            copyButton.textContent = 'copy code';
+            copyButton.addEventListener('click', () => {
+              vscode.postMessage({ type: 'copyCode', text: segment.value });
+              copyButton.textContent = 'copied';
+              setTimeout(() => {
+                copyButton.textContent = 'copy code';
+              }, 1200);
+            });
+
+            const code = document.createElement('pre');
+            code.className = 'chat-code';
+            code.textContent = segment.value;
+
+            codeActions.appendChild(copyButton);
+            codeWrap.appendChild(codeActions);
+            codeWrap.appendChild(code);
+            body.appendChild(codeWrap);
+            continue;
+          }
+
+          const text = document.createElement('div');
+          text.className = 'chat-line';
+          text.textContent = segment.value;
+          body.appendChild(text);
+        }
+
+        line.appendChild(meta);
+        line.appendChild(body);
+        chatLogEl.appendChild(line);
+      }
+
+      chatLogEl.scrollTop = chatLogEl.scrollHeight;
+    }
+
+    function escapeHtml(value) {
+      return value
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function splitMessageSegments(message) {
+      const segments = [];
+      const pattern = /```([\s\S]*?)```/g;
+      let lastIndex = 0;
+      let match = pattern.exec(message);
+
+      while (match) {
+        if (match.index > lastIndex) {
+          segments.push({ type: 'text', value: message.slice(lastIndex, match.index) });
+        }
+
+        segments.push({ type: 'code', value: match[1].trim() });
+        lastIndex = pattern.lastIndex;
+        match = pattern.exec(message);
+      }
+
+      if (lastIndex < message.length) {
+        segments.push({ type: 'text', value: message.slice(lastIndex) });
+      }
+
+      if (segments.length === 0) {
+        segments.push({ type: 'text', value: message });
+      }
+
+      return segments;
+    }
+
+    function insertAtCursor(text) {
+      const current = chatInputEl.value;
+      const selectionStart = chatInputEl.selectionStart ?? current.length;
+      const selectionEnd = chatInputEl.selectionEnd ?? current.length;
+      chatInputEl.value = `${current.slice(0, selectionStart)}${text}${current.slice(selectionEnd)}`;
+      return selectionStart + text.length;
+    }
+
+    render();
+  </script>
+</body>
+</html>

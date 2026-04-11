@@ -1,0 +1,17 @@
+{
+  "name": "my-collab-extension",
+  "private": true,
+  "version": "0.1.0",
+  "workspaces": [
+    "extension",
+    "server"
+  ],
+  "scripts": {
+    "build": "npm run build -w extension && npm run build -w server",
+    "watch": "concurrently \"npm run watch -w extension\" \"npm run watch -w server\"",
+    "clean": "npm run clean -w extension && npm run clean -w server"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}

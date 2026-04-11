@@ -1,0 +1,94 @@
+{
+  "name": "my-collab-extension-extension",
+  "displayName": "Collaborative Code Sharing",
+  "description": "Real-time collaborative code sharing with shared rooms and chat.",
+  "version": "0.1.1",
+  "publisher": "github-copilot",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.88.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished",
+    "onView:collab.sidebarView",
+    "onCommand:collab.createRoom",
+    "onCommand:collab.joinRoom",
+    "onCommand:collab.leaveRoom"
+  ],
+  "main": "./out/extension.js",
+  "files": [
+    "out/**",
+    "media/**",
+    "src/webview/index.html",
+    "README.md",
+    "CHANGELOG.md",
+    "package.json"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "collab.createRoom",
+        "title": "Create Room"
+      },
+      {
+        "command": "collab.joinRoom",
+        "title": "Join Room"
+      },
+      {
+        "command": "collab.leaveRoom",
+        "title": "Leave Room"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "collabSidebar",
+          "title": "Collab",
+          "icon": "media/collab.svg"
+        }
+      ]
+    },
+    "views": {
+      "collabSidebar": [
+        {
+          "type": "webview",
+          "id": "collab.sidebarView",
+          "name": "Collaborative Room"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Collab",
+      "properties": {
+        "collab.serverUrl": {
+          "type": "string",
+          "default": "http://127.0.0.1:3000",
+          "description": "Socket.IO server URL for collaboration rooms."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run build",
+    "build": "npm run typecheck && npm run bundle",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "bundle": "esbuild src/extension.ts --bundle --platform=node --format=cjs --external:vscode --outfile=out/extension.js",
+    "watch": "tsc -p tsconfig.json -w",
+    "clean": "node -e \"require('fs').rmSync('out',{recursive:true,force:true})\"",
+    "package": "npx @vscode/vsce package --allow-missing-repository --skip-license --no-dependencies"
+  },
+  "dependencies": {
+    "socket.io-client": "^4.8.1",
+    "uuid": "^11.1.0",
+    "yjs": "^13.6.26"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.29",
+    "@types/vscode": "^1.88.0",
+    "esbuild": "^0.25.4",
+    "typescript": "^5.8.3"
+  }
+}
