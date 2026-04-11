@@ -8,7 +8,8 @@
 		"watch": "tsc -p tsconfig.json -w",
 		"start": "npm run build && node dist/index.js",
 		"dev": "npm run build && npm run start",
-		"clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\""
+		"clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
+		"lint": "tsc --noEmit"
 	},
 	"dependencies": {
 		"express": "^4.21.2",

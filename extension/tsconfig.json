@@ -1,14 +1,14 @@
 {
 	"compilerOptions": {
 		"target": "ES2022",
-		"module": "CommonJS",
+		"module": "NodeNext",
 		"lib": ["ES2022"],
 		"rootDir": "src",
 		"strict": true,
 		"esModuleInterop": true,
 		"forceConsistentCasingInFileNames": true,
 		"skipLibCheck": true,
-		"moduleResolution": "Node",
+		"moduleResolution": "NodeNext",
 		"types": ["node", "vscode"]
 	},
 	"include": ["src"]

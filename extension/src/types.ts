@@ -1,34 +1,16 @@
-export const SOCKET_EVENTS = {
-	CREATE_ROOM: 'create-room',
-	JOIN_ROOM: 'join-room',
-	LEAVE_ROOM: 'leave-room',
-	CODE_CHANGE: 'code-change',
-	CURSOR_CHANGE: 'cursor-change',
-	CHAT_MESSAGE: 'chat-message',
-	CONNECTION_STATE: 'connection-state',
-	ROOM_SNAPSHOT: 'room-snapshot',
-	ROOM_STATE: 'room-state',
-	FILE_CHANGE: 'file-change',
-	SET_READONLY: 'set-readonly',
-	READONLY_CHANGED: 'readonly-changed',
-	ROOM_ERROR: 'room-error',
-} as const;
-
-export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'reconnecting' | 'error';
-
-export interface CursorPosition {
-	line: number;
-	character: number;
-}
-
+// User in a collaborative room
 export interface RoomUser {
 	id: string;
 	name: string;
 	color: string;
-	cursor?: CursorPosition;
+	cursor?: {
+		line: number;
+		character: number;
+	};
 	currentFile?: string;
 }
 
+// Chat message structure
 export interface ChatMessage {
 	id: string;
 	roomId: string;
@@ -40,16 +22,17 @@ export interface ChatMessage {
 	system?: boolean;
 }
 
+// Connection state sent to webview
+export interface ConnectionStatePayload {
+	status: 'connected' | 'disconnected' | 'reconnecting';
+	roomId: string | null;
+	userCount: number;
+}
+
+// Room state sent to webview
 export interface RoomStatePayload {
 	roomId: string | null;
 	users: RoomUser[];
-	isReadOnly?: boolean;
-	isCreator?: boolean;
-}
-
-export interface ConnectionStatePayload {
-	status: ConnectionStatus;
-	roomId: string | null;
-	userCount: number;
-	message?: string;
+	isReadOnly: boolean;
+	isCreator: boolean;
 }
