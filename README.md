@@ -1,46 +1,13 @@
 
-# Hive
-
-Real-time collaborative coding for VS Code with room-based sync, cursor presence, and chat.
-
-## Project Structure
-
 # Codus
 
-Real-time collaborative coding for VS Code with room-based sync, cursor presence, and chat.
+Codus is a room-based VS Code collaboration workspace with a local extension and a Socket.IO/Yjs server.
 
+## Layout
 
-Hive/
-|- extension/
-|  |- src/
-|  |  |- extension.ts
-|  |  |- roomManager.ts
-|  |  |- cursorManager.ts
-|  |  \- webview/
-|  |     |- panel.ts
-|  |     \- index.html
-|  |- package.json
-|  \- tsconfig.json
-|- server/
-|  |- src/
-|  |  \- index.ts
-|  |- package.json
-|  \- tsconfig.json
-\- README.md
-
-## Features
-
-- Create room, join room, and leave room commands.
-- 4-digit room IDs for easy verbal sharing.
-- Sidebar webview with:
-	- current room ID and copy action
-	- connected user list
-	- simple room chat
-- Real-time text synchronization using Yjs updates over Socket.IO events.
-- Remote cursor rendering with per-user colors using editor decorations.
-- Status bar presence indicator:
-	- format: "Room: ROOMID (N users)"
-- Automatic rejoin attempt after transport reconnect.
+- `extension/` contains the VS Code extension and webview UI.
+- `server/` contains the collaboration server.
+- `scripts/verify-integrity.js` guards against accidental bulk overwrites of tracked source files.
 
 ## Requirements
 
@@ -48,76 +15,27 @@ Hive/
 - npm 10+
 - VS Code 1.88+
 
-## Install
+## Getting Started
 
-Run from repository root:
+1. Run `npm install` from the repository root.
+2. Run `npm run build` to verify the extension and server compile cleanly.
+3. Run `npm run start -w server` to start the collaboration server.
+4. Open the repository in VS Code and press `F5` to launch the extension development host.
 
-1. npm install
-2. npm run build
+## Commands
 
-## Run Server
+- `npm run build` - build the extension and server.
+- `npm run verify` - run the repository integrity check.
+- `npm run watch` - watch both workspaces.
+- `npm run clean` - remove generated build output.
+- `npm run package -w extension` - create the VSIX package from the extension workspace.
 
-1. cd server
-2. npm run build
-3. npm run start
+## Configuration
 
-Server runs on port 3000 by default.
+- `codus.serverUrl` points the extension at the collaboration server.
 
-Health endpoint:
+## Notes
 
-- GET /health
-
-## Run Extension
-
-1. Open repository root in VS Code.
-2. Build once from root: npm run build
-3. Press F5 to launch the Extension Development Host.
-4. In the new VS Code window, run command palette actions:
-	 - Create Room
-	 - Join Room
-	 - Leave Room
-
-## Extension Settings
-
-- collab.serverUrl (string)
-	- default: http://127.0.0.1:3000
-
-## Event Contract
-
-### Client to Server
-
-- create-room
-- join-room
-- leave-room
-- code-change
-- cursor-change
-- chat-message
-
-### Server to Client
-
-- room-snapshot
-- room-state
-- code-change
-- cursor-change
-- chat-message
-- connection-state
-
-## Development Scripts
-
-From repository root:
-
-- npm run build
-- npm run watch
-- npm run clean
-
-From server:
-
-- npm run build
-- npm run watch
-- npm run start
-
-From extension:
-
-- npm run build
-- npm run watch
-- npm run clean
+- Room state is kept in memory on the server.
+- Room codes are 4 digits.
+- The extension packages only the files required for the VSIX.

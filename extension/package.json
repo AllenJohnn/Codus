@@ -2,7 +2,7 @@
   "name": "codus",
   "displayName": "Codus",
   "description": "Code together, live. Room-based collaboration for VS Code.",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "publisher": "codus-dev",
   "license": "MIT",
   "engines": {
@@ -24,7 +24,6 @@
     "chat",
     "multiplayer"
   ],
-  "icon": "images/icon.png",
   "activationEvents": [
     "onStartupFinished",
     "onView:codus.sidebarView",
@@ -37,7 +36,6 @@
   "files": [
     "out/**",
     "media/**",
-    "images/icon.png",
     "src/webview/index.html",
     "README.md",
     "CHANGELOG.md",
@@ -62,8 +60,7 @@
       "activitybar": [
         {
           "id": "codusSidebar",
-          "title": "Codus",
-          "icon": "images/icon.png"
+          "title": "Codus"
         }
       ]
     },
@@ -89,6 +86,8 @@
     "uriHandler": true
   },
   "scripts": {
+    "prebuild": "node ../scripts/verify-integrity.js",
+    "prepackage": "node ../scripts/verify-integrity.js",
     "vscode:prepublish": "npm run build",
     "build": "npm run typecheck && npm run bundle",
     "typecheck": "tsc -p tsconfig.json --noEmit",

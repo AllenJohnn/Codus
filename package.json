@@ -7,7 +7,9 @@
     "server"
   ],
   "scripts": {
+    "prebuild": "npm run verify",
     "build": "npm run build -w extension && npm run build -w server",
+    "verify": "node scripts/verify-integrity.js",
     "watch": "concurrently \"npm run watch -w extension\" \"npm run watch -w server\"",
     "clean": "npm run clean -w extension && npm run clean -w server"
   },

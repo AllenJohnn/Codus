@@ -1,49 +1,27 @@
-
-
-
 # Codus
 
-Code together, live. Room-based real-time collaboration for VS Code.
+Codus is a real-time room-based collaboration extension for VS Code.
 
-## What is Codus?
+## What it does
 
-Codus lets you share a live coding session with any VS Code user
-using a simple 4-digit room code — no accounts, no cloud, no setup.
-Just create a room, share the code, and code together instantly.
-
-## Features
-
-- Create or join a room with a 4-digit code
-- Real-time code sync powered by Yjs (conflict-free editing)
-- See teammates' cursors live inside your editor
-- Built-in room chat with code block support
-- Paste your current selection directly into chat as a fenced code block
-- Works fully local — your code never touches an external server
-- Sidebar panel showing room state, connected users, and chat
-
-## How to use
-
-1. Open the Codus panel in the VS Code sidebar
-2. Enter your display name when prompted
-3. Click **create room** — a 4-digit code is generated
-4. Share the code with your teammate
-5. They enter the code and click **join**
-6. You are now synced in real time
+- Create or join a room with a 4-digit code.
+- Sync code changes through Yjs and Socket.IO.
+- Show remote cursors and the current user list.
+- Send chat messages inside the room panel.
+- Toggle read-only mode as the room creator.
 
 ## Requirements
 
-- Node.js 18 or higher
-- Run the Codus server locally before using the extension:
+- Node.js 20 or newer.
+- The Codus server running locally at the configured server URL.
 
-```
-bash
-cd server
-npm install
-npm run dev
-```
+## Setup
 
-The server runs on http://127.0.0.1:3000 by default.
-You can change this in VS Code settings under `codus.serverUrl`.
+1. Install dependencies from the repository root with `npm install`.
+2. Start the server with `npm run start -w server`.
+3. Open the repository in VS Code and run the extension host.
+
+The default server URL is `http://127.0.0.1:3000` and can be changed with `codus.serverUrl`.
 
 ## Commands
 
@@ -59,39 +37,30 @@ You can change this in VS Code settings under `codus.serverUrl`.
 |---|---|---|
 | `codus.serverUrl` | `http://127.0.0.1:3000` | URL of the Codus collaboration server |
 
-## Room codes
+## Notes
 
-Room codes are 4 digits (e.g. 7581).
-Share them verbally, via chat, or use the **copy link** button
-to generate a one-click `vscode://` deep link.
-
-## Known limitations
-
-- Room state is stored in memory on the server — restarting the server clears all rooms
-- No authentication — anyone with the room code can join
-- One active file synced per room at a time
+- Room state is stored in memory on the server.
+- Room codes are 4 digits.
+- The extension packages only the runtime assets needed for the VSIX.
 
 ## Version history
 
+### 0.2.1
+- Refreshed release docs and packaging metadata.
+- Added repository integrity checks to catch accidental bulk overwrites.
+- Verified the workspace builds cleanly before packaging.
+
 ### 0.2.0
-- Configurable server URL via settings
-- Join/leave notifications in editor and chat
-- Chat history persists across panel hide/show
-- Auto-reconnect on socket disconnect
-- File awareness — see which file each user is editing
-- Read-only room mode (host only)
-- Deep link room joining via vscode:// URI
-- Shareable room link copy button
-- User follow mode — click a user to follow their cursor
-- UI redesign — monospace black/white terminal aesthetic
-- Fixed: disconnected state now visually distinct
-- Fixed: chat textarea no longer resizable
-- Fixed: action buttons reorganized above composer
+- Configurable server URL via settings.
+- Join and leave notifications.
+- Auto-reconnect on socket disconnect.
+- File awareness, read-only mode, and remote cursor presence.
+- Deep link room joining and shareable room links.
 
 ### 0.1.2
-- Initial working release
-- Room create/join/leave
-- Real-time Yjs code sync
-- Cursor presence decorations
-- Sidebar webview with chat
+- Initial working release.
+- Room create/join/leave.
+- Real-time Yjs code sync.
+- Cursor presence decorations.
+- Sidebar webview with chat.
 
