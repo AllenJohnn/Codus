@@ -2,7 +2,7 @@
   "name": "codus",
   "displayName": "Codus",
   "description": "Code together, live. Room-based collaboration for VS Code.",
-  "version": "0.2.10",
+  "version": "0.3.0",
   "publisher": "codus-dev",
   "license": "MIT",
   "engines": {
