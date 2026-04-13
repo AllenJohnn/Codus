@@ -1,3 +1,5 @@
+import * as fs from 'fs';
+import { spawn } from 'child_process';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import { io, Socket } from 'socket.io-client';
@@ -57,8 +59,8 @@ function encodeText(text: string): Uint8Array {
   return Y.encodeStateAsUpdate(doc);
 }
 
-function toPortConflictMessage(): string {
-  return 'Codus: Could not connect to server on port 3000.\nIs another instance already running?\nCheck codus.serverUrl in settings.';
+function toServerUnavailableMessage(serverUrl: string): string {
+  return `Codus: Could not connect to server at ${serverUrl}.\nStart the Codus server and try again, or update codus.serverUrl in settings.`;
 }
 
 function shouldUsePortMessage(error: Error): boolean {
@@ -70,12 +72,42 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+async function isHttpEndpointReachable(serverUrl: string): Promise<boolean> {
+  try {
+    const url = new URL('/health', serverUrl);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 1500);
+
+    try {
+      const response = await fetch(url, { signal: controller.signal });
+      return response.ok;
+    } finally {
+      clearTimeout(timeout);
+    }
+  } catch {
+    return false;
+  }
+}
+
+function isLocalDevelopmentServerUrl(serverUrl: string): boolean {
+  try {
+    const url = new URL(serverUrl);
+    return ['localhost', '127.0.0.1', '::1'].includes(url.hostname);
+  } catch {
+    return false;
+  }
+}
+
 function updateKey(update: Uint8Array): string {
   return Buffer.from(update).toString('base64');
 }
 
 export class RoomManager {
   private socket: Socket<ServerToClientEvents, ClientToServerEvents> | null = null;
+
+  private localServerAutoStartPromise: Promise<boolean> | null = null;
+
+  private localServerAutoStartAttempted = false;
 
   private serverUrl = 'http://127.0.0.1:3000';
 
@@ -331,7 +363,95 @@ export class RoomManager {
       return;
     }
 
+    await this.ensureLocalServerRunning();
+
     await this.connectWithRetry();
+  }
+
+  private async ensureLocalServerRunning(): Promise<void> {
+    if (this.localServerAutoStartAttempted) {
+      return;
+    }
+
+    if (!isLocalDevelopmentServerUrl(this.serverUrl)) {
+      return;
+    }
+
+    if (await isHttpEndpointReachable(this.serverUrl)) {
+      return;
+    }
+
+    this.localServerAutoStartAttempted = true;
+
+    const embeddedServerScript = path.join(__dirname, 'codus-server.js');
+    if (!fs.existsSync(embeddedServerScript)) {
+      return;
+    }
+
+    if (!this.localServerAutoStartPromise) {
+      this.localServerAutoStartPromise = this.startEmbeddedServer(embeddedServerScript);
+    }
+
+    const started = await this.localServerAutoStartPromise;
+    if (!started) {
+      throw new Error(toServerUnavailableMessage(this.serverUrl));
+    }
+
+    const serverReady = await this.waitForServerReady();
+    if (!serverReady) {
+      throw new Error(toServerUnavailableMessage(this.serverUrl));
+    }
+  }
+
+  private async startEmbeddedServer(serverScriptPath: string): Promise<boolean> {
+    try {
+      const targetPort = this.resolveServerPort(this.serverUrl);
+      const child = spawn(process.execPath, [serverScriptPath], {
+        detached: true,
+        env: {
+          ...process.env,
+          PORT: String(targetPort),
+        },
+        stdio: 'ignore',
+      });
+
+      child.unref();
+      return true;
+    } catch {
+      return false;
+    } finally {
+      this.localServerAutoStartPromise = null;
+    }
+  }
+
+  private resolveServerPort(serverUrl: string): number {
+    try {
+      const parsed = new URL(serverUrl);
+      if (parsed.port) {
+        const value = Number(parsed.port);
+        if (Number.isFinite(value) && value > 0) {
+          return value;
+        }
+      }
+
+      return parsed.protocol === 'https:' ? 443 : 3000;
+    } catch {
+      return 3000;
+    }
+  }
+
+  private async waitForServerReady(timeoutMs = 15000): Promise<boolean> {
+    const deadline = Date.now() + timeoutMs;
+
+    while (Date.now() < deadline) {
+      if (await isHttpEndpointReachable(this.serverUrl)) {
+        return true;
+      }
+
+      await delay(500);
+    }
+
+    return false;
   }
 
   private async connectWithRetry(): Promise<void> {
@@ -362,7 +482,7 @@ export class RoomManager {
     }
 
     if (lastError && shouldUsePortMessage(lastError)) {
-      throw new Error(toPortConflictMessage());
+      throw new Error(toServerUnavailableMessage(this.serverUrl));
     }
 
     throw lastError ?? new Error('Connection failed.');
@@ -413,7 +533,7 @@ export class RoomManager {
         status: 'error',
         roomId: this.activeRoomId,
         userCount: this.roomUsers.length,
-        message: shouldUsePortMessage(error) ? toPortConflictMessage() : error.message,
+        message: shouldUsePortMessage(error) ? toServerUnavailableMessage(this.serverUrl) : error.message,
       });
     });
 

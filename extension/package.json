@@ -2,7 +2,7 @@
   "name": "codus",
   "displayName": "Codus",
   "description": "Code together, live. Room-based collaboration for VS Code.",
-  "version": "0.2.2",
+  "version": "0.2.6",
   "publisher": "codus-dev",
   "license": "MIT",
   "engines": {
@@ -60,7 +60,8 @@
       "activitybar": [
         {
           "id": "codusSidebar",
-          "title": "Codus"
+          "title": "Codus",
+          "icon": "media/collab.svg"
         }
       ]
     },
@@ -89,9 +90,10 @@
     "prebuild": "node ../scripts/verify-integrity.js",
     "prepackage": "node ../scripts/verify-integrity.js",
     "vscode:prepublish": "npm run build",
-    "build": "npm run typecheck && npm run bundle",
+    "build": "npm run typecheck && npm run bundle && npm run bundle:server",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "bundle": "esbuild src/extension.ts --bundle --platform=node --format=cjs --external:vscode --outfile=out/extension.js",
+    "bundle:server": "esbuild ../server/src/index.ts --bundle --platform=node --format=cjs --outfile=out/codus-server.js",
     "watch": "tsc -p tsconfig.json -w",
     "clean": "node -e \"require('fs').rmSync('out',{recursive:true,force:true})\"",
     "package": "npx @vscode/vsce package --allow-missing-repository --skip-license --no-dependencies"

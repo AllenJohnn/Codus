@@ -30,10 +30,6 @@ export function activate(context: vscode.ExtensionContext): void {
         hadConnectedBefore = true;
       }
 
-      if (payload.status === 'error' && payload.message) {
-        void vscode.window.showErrorMessage(payload.message);
-      }
-
       panelProvider?.updateConnectionState(payload);
     },
     onRoomState: (payload) => {
