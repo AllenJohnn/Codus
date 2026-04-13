@@ -8,35 +8,34 @@
   <style>
     * {
       box-sizing: border-box;
-      border-radius: 0;
-      font-family: 'Courier New', monospace;
+      border-radius: 10px;
+      font-family: 'Bahnschrift', 'Segoe UI', Tahoma, sans-serif;
     }
 
     :root {
-      --panel: #0f141a;
-      --surface-0: #121922;
-      --surface-1: #17202b;
-      --text-strong: #f2f7ff;
-      --text-mid: #c2d0e2;
-      --text-label: #8da3bd;
-      --text-muted: #6c819b;
-      --text-header: #a8bcd4;
-      --line: #2f3d4f;
-      --line-input: #3a4c61;
-      --line-active: #7ab7ff;
-      --danger-line: #8f3f4a;
-      --danger-text: #ffbcc5;
-      --ok: #7be4b8;
+      --bg: #0b0b0c;
+      --surface: #131316;
+      --surface-2: #19191d;
+      --line: #2c2c33;
+      --line-soft: #3f3f48;
+      --text-strong: #ffffff;
+      --text-mid: #d3d3d8;
+      --text-muted: #9a9aa0;
+      --ok: #ffffff;
+      --danger: #ededee;
+      --shadow: 0 14px 34px rgba(0, 0, 0, 0.35);
     }
 
     html,
     body {
       margin: 0;
       padding: 0;
-      background: radial-gradient(circle at top right, #1a2430 0%, var(--panel) 38%);
+      background:
+        radial-gradient(circle at 100% -10%, #1d1d25 0%, transparent 42%),
+        radial-gradient(circle at 0% 0%, #17171f 0%, transparent 38%),
+        var(--bg);
       color: var(--text-mid);
-      font-family: 'Courier New', monospace;
-      font-size: 13px;
+      font-size: 12px;
       line-height: 1.5;
     }
 
@@ -44,99 +43,106 @@
     button,
     textarea,
     select {
-      font-family: 'Courier New', monospace;
+      font-family: inherit;
     }
 
     .panel {
       display: grid;
-      gap: 10px;
-      padding: 10px;
+      gap: 12px;
+      padding: 16px;
+      max-width: 780px;
+      margin: 0 auto;
     }
 
     .reconnect-banner {
       display: none;
-      background: #1a1a1a;
-      color: #555;
+      background: #202028;
+      color: var(--text-mid);
       font-size: 10px;
-      text-transform: lowercase;
-      padding: 2px 10px;
-      border: 1px solid #222;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--line);
+      text-align: center;
     }
 
     .reconnect-banner.show {
       display: block;
     }
 
+    .header,
     .section {
       border: 1px solid var(--line);
-      background: rgba(255, 255, 255, 0.02);
-      padding: 12px;
-      display: grid;
-      gap: 8px;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0)) var(--surface);
+      box-shadow: var(--shadow);
     }
 
     .header {
-      border: 1px solid var(--line);
-      background: rgba(255, 255, 255, 0.02);
-      padding: 14px 16px;
+      padding: 12px 14px;
       display: flex;
       align-items: center;
       gap: 8px;
       color: var(--text-strong);
-      font-size: 12px;
-      letter-spacing: 0.12em;
+      font-size: 11px;
+      letter-spacing: 0.2em;
       text-transform: uppercase;
       font-weight: 600;
     }
 
     .header-sep {
-      width: 1px;
-      height: 10px;
-      background: #333;
+      width: 8px;
+      height: 8px;
+      background: #fff;
       flex: 0 0 auto;
+    }
+
+    .section {
+      padding: 12px;
+      display: grid;
+      gap: 10px;
     }
 
     .label {
       color: var(--text-strong);
-      font-size: 12px;
-      letter-spacing: 0.1em;
+      font-size: 11px;
+      letter-spacing: 0.12em;
       text-transform: uppercase;
       font-weight: 600;
-      margin-bottom: 4px;
     }
 
     .room-block.disconnected {
-      opacity: 0.4;
+      opacity: 0.45;
     }
 
     .room-id {
       color: var(--text-strong);
-      font-size: 2.4rem;
+      font-size: 1.9rem;
       font-weight: 700;
-      letter-spacing: 0.18em;
+      letter-spacing: 0.16em;
       line-height: 1;
       margin: 0;
-      text-shadow: 0 0 10px rgba(138, 191, 255, 0.2);
     }
 
     .room-id.disconnected {
-      color: #576d87;
+      color: #787880;
     }
 
     .room-meta {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      gap: 6px;
+      gap: 8px;
       min-height: 20px;
+      flex-wrap: wrap;
     }
 
     .status-left {
       display: inline-flex;
       align-items: center;
-      gap: 5px;
-      font-size: 11px;
-      text-transform: lowercase;
+      gap: 6px;
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
       white-space: nowrap;
     }
 
@@ -144,7 +150,7 @@
       width: 8px;
       height: 8px;
       border-radius: 999px;
-      background: #5d748f;
+      background: #666;
       flex: 0 0 auto;
     }
 
@@ -153,7 +159,7 @@
     }
 
     .status-text.disconnected {
-      color: #8399b5;
+      color: #9d9da6;
     }
 
     .status-text.connected {
@@ -163,59 +169,55 @@
     .status-right {
       display: inline-flex;
       align-items: center;
-      gap: 4px;
+      gap: 5px;
       justify-content: flex-end;
       flex-wrap: wrap;
     }
 
     .user-badge {
       border: 1px solid var(--line);
-      color: #acc1da;
-      padding: 1px 5px;
-      font-size: 11px;
+      color: var(--text-mid);
+      padding: 2px 6px;
+      font-size: 10px;
       white-space: nowrap;
-      text-transform: lowercase;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
     }
 
     button {
-      text-transform: lowercase;
-      border: 1px solid #5a7a9e;
-      background: transparent;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      border: 1px solid var(--line-soft);
+      background: #16161b;
       color: var(--text-strong);
       padding: 6px 10px;
-      font-size: 12px;
+      font-size: 10px;
       font-weight: 500;
       cursor: pointer;
       transition: all 0.15s ease;
     }
 
     button:hover {
-      border-color: #8abfff;
-      color: #ffffff;
-      background: rgba(138, 191, 255, 0.1);
+      border-color: #ffffff;
+      background: #24242c;
+      transform: translateY(-1px);
     }
 
     button:focus-visible,
     input:focus-visible,
     textarea:focus-visible {
-      outline: 2px solid #7ab7ff;
+      outline: 1px solid #ffffff;
       outline-offset: 1px;
     }
 
     #leaveRoom {
-      border-color: var(--danger-line);
-      color: var(--danger-text);
-    }
-
-    #leaveRoom:hover {
-      border-color: var(--danger-line);
-      color: var(--danger-text);
+      color: var(--danger);
     }
 
     .readonly-btn {
-      border: 1px solid #2a2a2a;
-      color: #555;
-      font-size: 9px;
+      border: 1px solid var(--line-soft);
+      color: #9f9fa6;
+      font-size: 10px;
       padding: 2px 6px;
       display: none;
     }
@@ -226,21 +228,18 @@
 
     .create-btn {
       width: 100%;
-      border: 1px solid #5a7a9e;
-      background: #2a5f9e;
-      color: #e5f0ff;
-      font-size: 12px;
-      font-weight: 600;
-      letter-spacing: 0.08em;
+      border: 1px solid #ffffff;
+      background: #ffffff;
+      color: #000000;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
       padding: 10px;
-      cursor: pointer;
-      transition: all 0.15s ease;
     }
 
     .create-btn:hover {
-      border-color: #8abfff;
-      color: #ffffff;
-      background: #3a6fae;
+      background: #dddddf;
+      color: #000000;
     }
 
     .row-flush {
@@ -252,11 +251,11 @@
     input {
       width: 100%;
       min-width: 0;
-      border: 1px solid var(--line-input);
-      background: var(--surface-0);
+      border: 1px solid var(--line-soft);
+      background: #101014;
       color: var(--text-strong);
       padding: 8px 10px;
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 500;
       outline: none;
     }
@@ -267,9 +266,8 @@
     }
 
     input:focus {
-      border-color: var(--line-active);
-      color: var(--text-strong);
-      background: rgba(122, 183, 255, 0.05);
+      border-color: #ffffff;
+      background: #17171d;
     }
 
     #joinCode {
@@ -279,18 +277,18 @@
     }
 
     #joinForm button {
-      border: 1px solid var(--line-input);
+      border: 1px solid var(--line-soft);
       color: var(--text-mid);
       min-width: 52px;
       padding: 0 8px;
-      background: transparent;
+      background: #1d1d24;
     }
 
     .identity {
-      border-left: 3px solid #7ab7ff;
+      border-left: 2px solid #ffffff;
       padding-left: 10px;
       color: var(--text-mid);
-      font-size: 12px;
+      font-size: 11px;
       text-transform: lowercase;
       min-height: 18px;
       font-weight: 500;
@@ -306,12 +304,13 @@
       margin: 0;
       padding: 0;
       display: grid;
-      gap: 4px;
+      gap: 5px;
     }
 
     .user {
       border: 1px solid var(--line);
-      padding: 5px 6px;
+      background: #17171d;
+      padding: 7px 8px;
       display: flex;
       align-items: center;
       gap: 6px;
@@ -338,7 +337,7 @@
     }
 
     .user-name {
-      color: #ffffff;
+      color: #f5f5f7;
       font-size: 13px;
       font-weight: 500;
       text-transform: lowercase;
@@ -348,7 +347,7 @@
     }
 
     .user-file {
-      color: #93a9c3;
+      color: #9f9fa7;
       font-size: 9px;
       text-transform: lowercase;
       overflow: hidden;
@@ -357,21 +356,19 @@
       max-width: 20ch;
     }
 
-    .following-tag {
-      color: #555;
+    .following-tag,
+    .you-tag {
+      color: #b6b6be;
       font-size: 9px;
       text-transform: lowercase;
     }
 
     .you-tag {
-      color: #95abc6;
-      font-size: 9px;
-      text-transform: lowercase;
       margin-left: auto;
     }
 
     .waiting {
-      color: #a8bcd4;
+      color: #b4b4bc;
       font-size: 12px;
       text-transform: lowercase;
       font-weight: 500;
@@ -381,22 +378,22 @@
       min-height: 56px;
       max-height: 220px;
       overflow-y: auto;
-      background: var(--surface-1);
-      border: 1px solid #324357;
-      padding: 8px;
+      background: var(--surface-2);
+      border: 1px solid var(--line);
+      padding: 9px;
       display: grid;
-      gap: 4px;
+      gap: 5px;
     }
 
     .chat-empty {
-      color: #8ba3be;
+      color: #a0a0a8;
       font-size: 11px;
       text-transform: lowercase;
     }
 
     .chat-message {
-      font-size: 12px;
-      line-height: 1.6;
+      font-size: 11px;
+      line-height: 1.55;
       color: var(--text-strong);
       white-space: pre-wrap;
       word-break: break-word;
@@ -404,18 +401,18 @@
     }
 
     .chat-message + .chat-message {
-      border-top: 1px dashed #222;
+      border-top: 1px dashed #353540;
       margin-top: 2px;
     }
 
     .chat-system {
       text-align: center;
       font-size: 10px;
-      color: #9bb0ca;
+      color: #b3b3bc;
       font-style: italic;
       padding-top: 4px;
       padding-bottom: 2px;
-      border-top: 1px dashed #222;
+      border-top: 1px dashed #353540;
       margin-top: 2px;
     }
 
@@ -425,7 +422,7 @@
       align-items: center;
       gap: 6px;
       margin-bottom: 3px;
-      color: #a8bcd4;
+      color: #b8b8c0;
       font-size: 11px;
       text-transform: lowercase;
       font-weight: 500;
@@ -439,13 +436,13 @@
     .chat-code {
       margin-top: 4px;
       margin-bottom: 4px;
-      border: 1px solid #2a3f54;
-      background: #0a0e14;
-      color: #d9e8fa;
+      border: 1px solid #383844;
+      background: #0f0f13;
+      color: #efeff2;
       padding: 8px;
       white-space: pre-wrap;
       overflow-x: auto;
-      font-size: 11px;
+      font-size: 10px;
       line-height: 1.5;
     }
 
@@ -460,18 +457,18 @@
     }
 
     .chat-copy {
-      border: 1px solid #4a6078;
+      border: 1px solid #454551;
       padding: 1px 5px;
       font-size: 9px;
-      color: #b8cbe2;
+      color: #d7d7de;
     }
 
     .chat-author {
-      color: #dce9fb;
+      color: #ffffff;
     }
 
     .chat-index {
-      color: #8fa7c2;
+      color: #9f9fa8;
     }
 
     .insert-row {
@@ -482,14 +479,14 @@
     }
 
     .insert-label {
-      color: var(--text-label);
+      color: var(--text-muted);
       font-size: 11px;
       text-transform: lowercase;
       font-weight: 500;
     }
 
     .chat-insert {
-      border: 1px solid #5a7a9e;
+      border: 1px solid var(--line-soft);
       padding: 4px 8px;
       font-size: 11px;
       color: var(--text-strong);
@@ -498,17 +495,16 @@
     }
 
     .chat-insert:hover {
-      border-color: #8abfff;
-      color: #ffffff;
-      background: rgba(138, 191, 255, 0.1);
+      border-color: #ffffff;
+      background: #23232a;
     }
 
     #chatInput {
-      border: 1px solid var(--line-input);
-      background: #0d1419;
+      border: 1px solid var(--line-soft);
+      background: #101014;
       color: var(--text-strong);
-      padding: 8px 10px;
-      font-size: 12px;
+      padding: 9px 10px;
+      font-size: 11px;
       font-weight: 400;
       line-height: 1.5;
       height: 56px;
@@ -521,9 +517,8 @@
     }
 
     #chatInput:focus {
-      border-color: #7ab7ff;
-      color: #ffffff;
-      background: rgba(13, 20, 25, 0.8);
+      border-color: #ffffff;
+      background: #17171d;
     }
 
     .chat-send-row {
@@ -532,61 +527,76 @@
     }
 
     #chatForm button {
-      border: none;
-      background: #d8e9ff;
-      color: #10283f;
+      border: 1px solid #ffffff;
+      background: #ffffff;
+      color: #000000;
       min-width: 52px;
       padding: 0 8px;
-      font-size: 11px;
+      font-size: 10px;
       font-weight: 700;
-      letter-spacing: 0.04em;
-    }
-
-    .hint {
-      text-align: right;
-      color: #95abc6;
-      font-size: 11px;
-      font-weight: 500;
-      white-space: pre;
-      text-transform: lowercase;
-      line-height: 1.5;
+      letter-spacing: 0.1em;
     }
 
     .footer {
-      margin: 24px 0 0 0;
-      padding: 16px 12px;
-      border-top: 1px solid #2f3d4f;
+      border-top: 1px solid var(--line);
+      margin-top: 8px;
+      padding: 14px 12px;
+      background: #121218;
       text-align: center;
-      background: rgba(0, 0, 0, 0.3);
-      font-size: 11px;
-      line-height: 1.6;
-      color: #8da3bd;
+      color: #9999a2;
+      line-height: 1.45;
+      border-radius: 0;
     }
 
     .footer a {
-      color: #8abfff;
+      color: #ffffff;
       text-decoration: none;
       transition: color 0.2s ease;
       font-weight: 500;
     }
 
     .footer a:hover {
-      color: #c2d0e2;
+      color: #d4d4da;
       text-decoration: underline;
     }
 
     .footer-title {
       color: var(--text-strong);
       font-weight: 600;
-      margin-bottom: 6px;
+      margin-bottom: 4px;
     }
 
     .footer-links {
       display: flex;
       justify-content: center;
-      gap: 12px;
+      gap: 10px;
       flex-wrap: wrap;
-      margin-top: 4px;
+      margin-top: 6px;
+    }
+
+    .footer-sep {
+      color: #767680;
+    }
+
+    .footer-credit {
+      margin-top: 6px;
+      color: #8d8d96;
+      font-size: 10px;
+    }
+
+    @media (max-width: 560px) {
+      .panel {
+        padding: 12px;
+      }
+
+      .room-id {
+        font-size: 1.65rem;
+      }
+
+      .status-right {
+        width: 100%;
+        justify-content: flex-start;
+      }
     }
   </style>
 </head>
@@ -650,9 +660,6 @@
         <textarea id="chatInput" placeholder="share code, notes, fixes..." maxlength="4000"></textarea>
         <button type="submit">send</button>
       </form>
-
-      <div class="hint">alt+enter  send
-enter      newline</div>
     </section>
   </div>
 
@@ -751,26 +758,6 @@ enter      newline</div>
       }
       vscode.postMessage({ type: 'sendChatMessage', text: value });
       chatInputEl.value = '';
-    });
-
-    chatInputEl.addEventListener('keydown', (event) => {
-      if (event.key !== 'Enter') {
-        return;
-      }
-
-      if (event.altKey) {
-        // Insert newline at caret position
-        event.preventDefault();
-        const start = chatInputEl.selectionStart;
-        const end = chatInputEl.selectionEnd;
-        const value = chatInputEl.value;
-        chatInputEl.value = value.slice(0, start) + '\n' + value.slice(end);
-        chatInputEl.selectionStart = chatInputEl.selectionEnd = start + 1;
-      } else {
-        // Submit on Enter
-        event.preventDefault();
-        chatFormEl.requestSubmit();
-      }
     });
 
     insertCodeBlockEl.addEventListener('click', () => {
@@ -1025,15 +1012,15 @@ enter      newline</div>
     render();
   </script>
   <footer class="footer">
-    <div class="footer-title">Codus — Collaborative Coding for VS Code</div>
+    <div class="footer-title">Codus - Collaborative Coding for VS Code</div>
     <div class="footer-links">
       <a href="https://github.com/AllenJohnn" target="_blank" rel="noopener">GitHub</a>
-      <span style="color: #556b83;">•</span>
+      <span class="footer-sep">-</span>
       <a href="https://linkedin.com/in/allenjohnjoy/" target="_blank" rel="noopener">LinkedIn</a>
-      <span style="color: #556b83;">•</span>
+      <span class="footer-sep">-</span>
       <a href="https://allenjohnnportfolio.vercel.app/" target="_blank" rel="noopener">Portfolio</a>
     </div>
-    <div style="margin-top: 8px; color: #6c819b; font-size: 10px;">Created by Allen John</div>
+    <div class="footer-credit">Created by Allen John</div>
   </footer>
 </body>
 </html>

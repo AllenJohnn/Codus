@@ -1,13 +1,14 @@
 {
   "name": "codus",
-  "displayName": "Codus",
-  "description": "Code together, live. Room-based collaboration for VS Code.",
-  "version": "0.3.0",
+  "displayName": "Codus — Collaborative Coding",
+  "description": "Real-time collaborative code editing for VS Code. Share a 4-digit room code, sync live with teammates — no account needed.",
+  "version": "0.4.1",
   "publisher": "AllenJohn",
   "license": "MIT",
   "author": {
     "name": "Allen John"
   },
+  "icon": "media/icon.png",
   "repository": {
     "type": "git",
     "url": "https://github.com/AllenJohnn/Codus"
@@ -15,9 +16,9 @@
   "bugs": {
     "url": "https://github.com/AllenJohnn/Codus/issues"
   },
-  "homepage": "https://github.com/AllenJohnn/Codus/blob/main/README.md",
+  "homepage": "https://github.com/AllenJohnn/Codus/blob/main/extension/README.md",
   "galleryBanner": {
-    "color": "#1e1e1e",
+    "color": "#0f1117",
     "theme": "dark"
   },
   "pricing": "Free",
@@ -30,15 +31,15 @@
   ],
   "keywords": [
     "collaboration",
-    "collab",
     "live share",
     "pair programming",
-    "rooms",
     "real-time",
+    "multiplayer",
     "sync",
+    "remote",
+    "collab",
     "cursor sharing",
-    "chat",
-    "multiplayer"
+    "chat"
   ],
   "activationEvents": [
     "onStartupFinished",
@@ -49,19 +50,23 @@
     "commands": [
       {
         "command": "codus.createRoom",
-        "title": "Create Room"
+        "title": "Create Room",
+        "category": "Codus"
       },
       {
         "command": "codus.joinRoom",
-        "title": "Join Room"
+        "title": "Join Room",
+        "category": "Codus"
       },
       {
         "command": "codus.leaveRoom",
-        "title": "Leave Room"
+        "title": "Leave Room",
+        "category": "Codus"
       },
       {
         "command": "codus.connectionDiagnostics",
-        "title": "Connection Diagnostics"
+        "title": "Connection Diagnostics",
+        "category": "Codus"
       }
     ],
     "viewsContainers": {
@@ -88,7 +93,7 @@
         "codus.serverUrl": {
           "type": "string",
           "default": "https://codus.onrender.com",
-          "description": "URL of the Codus collaboration server"
+          "markdownDescription": "URL of the Codus collaboration server. Defaults to the free shared server. [Learn how to self-host](https://github.com/AllenJohnn/Codus#self-hosting)."
         }
       }
     },
@@ -104,7 +109,7 @@
     "bundle:server": "esbuild ../server/src/index.ts --bundle --platform=node --format=cjs --outfile=out/codus-server.js",
     "watch": "tsc -p tsconfig.json -w",
     "clean": "node -e \"require('fs').rmSync('out',{recursive:true,force:true})\"",
-    "package": "npx @vscode/vsce package --allow-missing-repository --skip-license --no-dependencies"
+    "package": "npx @vscode/vsce package --skip-license --no-dependencies"
   },
   "dependencies": {
     "socket.io-client": "^4.8.1",

@@ -8,16 +8,36 @@ const monitoredFiles = [
   'package.json',
   'package-lock.json',
   path.join('extension', 'package.json'),
+  path.join('extension', 'README.md'),
+  path.join('extension', 'CHANGELOG.md'),
   path.join('extension', 'tsconfig.json'),
   path.join('extension', 'src', 'extension.ts'),
   path.join('extension', 'src', 'cursorManager.ts'),
   path.join('extension', 'src', 'roomManager.ts'),
   path.join('extension', 'src', 'types.ts'),
+  path.join('extension', 'src', 'webview', 'index.html'),
   path.join('extension', 'src', 'webview', 'panel.ts'),
   path.join('server', 'package.json'),
   path.join('server', 'tsconfig.json'),
   path.join('server', 'src', 'index.ts'),
 ];
+
+const expectedSignatures = {
+  [path.join('extension', 'src', 'extension.ts')]: ['export function activate', 'const URI_AUTHORITY'],
+  [path.join('extension', 'src', 'roomManager.ts')]: ['export class RoomManager', 'SOCKET_EVENTS'],
+  [path.join('extension', 'src', 'types.ts')]: ['export const SOCKET_EVENTS'],
+  [path.join('extension', 'src', 'webview', 'panel.ts')]: ['export class CollaborativePanelProvider'],
+  [path.join('extension', 'src', 'webview', 'index.html')]: ['<!DOCTYPE html>', '<html lang="en">'],
+  [path.join('extension', 'README.md')]: ['# Codus'],
+  [path.join('extension', 'CHANGELOG.md')]: ['# Changelog'],
+};
+
+const forbiddenSignaturesByExtension = {
+  '.ts': ['<!DOCTYPE html>'],
+  '.html': ["import * as vscode from 'vscode';", 'export function activate'],
+  '.md': ["import * as vscode from 'vscode';", 'export function activate'],
+  '.json': ['<!DOCTYPE html>'],
+};
 
 function readFile(filePath) {
   return fs.readFileSync(path.join(rootDir, filePath), 'utf8');
@@ -32,6 +52,29 @@ function validateJson(filePath, content) {
     JSON.parse(content);
   } catch (error) {
     throw new Error(`${filePath} is not valid JSON: ${error.message}`);
+  }
+}
+
+function assertExpectedSignatures(filePath, content) {
+  const expected = expectedSignatures[filePath];
+  if (!expected) {
+    return;
+  }
+
+  for (const needle of expected) {
+    if (!content.includes(needle)) {
+      throw new Error(`Integrity signature missing in ${filePath}: expected to find ${JSON.stringify(needle)}`);
+    }
+  }
+}
+
+function assertForbiddenSignatures(filePath, content) {
+  const extension = path.extname(filePath);
+  const forbidden = forbiddenSignaturesByExtension[extension] ?? [];
+  for (const needle of forbidden) {
+    if (content.includes(needle)) {
+      throw new Error(`Detected file-type corruption in ${filePath}: contains forbidden signature ${JSON.stringify(needle)}`);
+    }
   }
 }
 
@@ -51,6 +94,9 @@ for (const filePath of monitoredFiles) {
   if (filePath.endsWith('.json')) {
     validateJson(filePath, content);
   }
+
+  assertExpectedSignatures(filePath, content);
+  assertForbiddenSignatures(filePath, content);
 
   const fileHash = hash(content);
   const existing = hashToFiles.get(fileHash) ?? [];
