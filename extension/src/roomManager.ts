@@ -1,15 +1,25 @@
-{
-	"compilerOptions": {
-		"target": "ES2022",
-		"module": "NodeNext",
-		"lib": ["ES2022"],
-		"rootDir": "src",
-		"strict": true,
-		"esModuleInterop": true,
-		"forceConsistentCasingInFileNames": true,
-		"skipLibCheck": true,
-		"moduleResolution": "NodeNext",
-		"types": ["node", "vscode"]
-	},
-	"include": ["src"]
+import { RoomUser } from './types';
+
+export class RoomManager {
+	private users: RoomUser[] = [];
+	private roomId: string | null = null;
+
+	public setRoom(roomId: string, users: RoomUser[]): void {
+		this.roomId = roomId;
+		this.users = users;
+	}
+
+	public getUsers(): RoomUser[] {
+		return this.users;
+	}
+
+	public getRoomId(): string | null {
+		return this.roomId;
+	}
+
+	public clear(): void {
+		this.roomId = null;
+		this.users = [];
+	}
 }
+

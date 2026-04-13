@@ -51,7 +51,6 @@ export class CollaborativePanelProvider implements vscode.WebviewViewProvider {
       roomId: null,
       users: [],
       isReadOnly: false,
-      isCreator: false,
     },
     chatMessages: [],
     localUserName: 'Guest',
