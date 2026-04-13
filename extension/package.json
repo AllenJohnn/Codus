@@ -3,8 +3,24 @@
   "displayName": "Codus",
   "description": "Code together, live. Room-based collaboration for VS Code.",
   "version": "0.3.0",
-  "publisher": "codus-dev",
+  "publisher": "AllenJohn",
   "license": "MIT",
+  "author": {
+    "name": "Allen John"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AllenJohnn/Codus"
+  },
+  "bugs": {
+    "url": "https://github.com/AllenJohnn/Codus/issues"
+  },
+  "homepage": "https://github.com/AllenJohnn/Codus/blob/main/README.md",
+  "galleryBanner": {
+    "color": "#1e1e1e",
+    "theme": "dark"
+  },
+  "pricing": "Free",
   "engines": {
     "vscode": "^1.88.0"
   },
@@ -29,14 +45,6 @@
     "onUri"
   ],
   "main": "./out/extension.js",
-  "files": [
-    "out/**",
-    "media/**",
-    "src/webview/index.html",
-    "README.md",
-    "CHANGELOG.md",
-    "package.json"
-  ],
   "contributes": {
     "commands": [
       {
