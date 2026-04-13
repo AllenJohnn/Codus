@@ -295,8 +295,8 @@ export class RoomManager {
   }
 
   public setActiveEditor(editor: vscode.TextEditor | undefined): void {
-    this.activeDocumentUri = editor?.document.uri.toString() ?? null;
     if (editor) {
+      // Keep room sync bound to the original document for this session.
       void this.syncActiveEditor(editor);
       void this.sendFileChange(path.basename(editor.document.fileName));
     }
@@ -326,6 +326,9 @@ export class RoomManager {
 
     this.initializeDocument();
     this.activeRoomId = roomId;
+    if (!this.activeDocumentUri) {
+      this.activeDocumentUri = vscode.window.activeTextEditor?.document.uri.toString() ?? null;
+    }
     this.emitConnectionState({ status: 'connecting', roomId, userCount: this.roomUsers.length });
 
     const response = await this.requestJoinRoom(roomId, userName, initialState, initialContent);
