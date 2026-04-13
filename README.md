@@ -1,119 +1,37 @@
-﻿import * as path from 'path';
-import * as vscode from 'vscode';
-import { RoomUser } from './types';
+﻿# Codus
 
-export class CursorManager implements vscode.Disposable {
-  private readonly decorations = new Map<string, vscode.TextEditorDecorationType>();
+Codus is a room-based collaborative coding extension for VS Code with a shared hosted server and Yjs-powered real-time sync.
 
-  private followedUserId: string | null = null;
+## Repository Layout
 
-  private followPromptKey: string | null = null;
+- `extension/` - VS Code extension source, webview UI, and packaging config
+- `server/` - Socket.IO collaboration server
+- `scripts/` - integrity and packaging helpers
 
-  public render(editor: vscode.TextEditor, users: RoomUser[], localPeerId: string | null): void {
-    const remoteUsers = users.filter((user) => user.id !== localPeerId && user.cursor);
-    const activeIds = new Set(remoteUsers.map((user) => user.id));
+## Current Release
 
-    for (const [userId, decoration] of Array.from(this.decorations.entries())) {
-      if (!activeIds.has(userId)) {
-        editor.setDecorations(decoration, []);
-        decoration.dispose();
-        this.decorations.delete(userId);
-      }
-    }
+- Extension version: `0.3.0`
+- Default server: `https://codus.onrender.com`
+- Latest packaged artifact: `extension/codus-0.3.0.vsix`
 
-    for (const user of remoteUsers) {
-      if (!user.cursor) {
-        continue;
-      }
+## Working Features
 
-      let decoration = this.decorations.get(user.id);
-      if (!decoration) {
-        decoration = this.createDecoration(user.color, user.name);
-        this.decorations.set(user.id, decoration);
-      }
+- Create or join rooms with a 4-digit code
+- Live code sync with Yjs and Socket.IO
+- Remote cursors and room presence
+- Sidebar chat and read-only mode
+- Deep-link room joins across systems
 
-      const position = new vscode.Position(user.cursor.line, user.cursor.character);
-      const range = new vscode.Range(position, position);
-      editor.setDecorations(decoration, [range]);
+## Build
 
-      if (this.followedUserId === user.id) {
-        editor.revealRange(range, vscode.TextEditorRevealType.InCenter);
-        void this.maybePromptSwitchFile(user, editor.document.fileName);
-      }
-    }
-  }
+From the repository root:
 
-  public setFollowedUser(userId: string | null): void {
-    this.followedUserId = userId;
-  }
+1. `npm install`
+2. `npm run build`
+3. `npm run package -w extension`
 
-  public getFollowedUserId(): string | null {
-    return this.followedUserId;
-  }
+## Notes
 
-  public clear(): void {
-    for (const decoration of Array.from(this.decorations.values())) {
-      decoration.dispose();
-    }
-
-    this.decorations.clear();
-  }
-
-  public dispose(): void {
-    this.clear();
-  }
-
-  private async maybePromptSwitchFile(user: RoomUser, currentPath: string): Promise<void> {
-    if (!user.currentFile) {
-      return;
-    }
-
-    const currentName = path.basename(currentPath);
-    if (user.currentFile === currentName) {
-      this.followPromptKey = null;
-      return;
-    }
-
-    const nextKey = `${user.id}:${user.currentFile}`;
-    if (this.followPromptKey === nextKey) {
-      return;
-    }
-    this.followPromptKey = nextKey;
-
-    const picked = await vscode.window.showQuickPick(['Yes', 'No'], {
-      title: `${user.name} is editing ${user.currentFile} - switch to that file?`,
-      ignoreFocusOut: true,
-    });
-
-    if (picked !== 'Yes') {
-      return;
-    }
-
-    const target = await this.findWorkspaceFileByName(user.currentFile);
-    if (!target) {
-      void vscode.window.showWarningMessage(`Could not find ${user.currentFile} in workspace.`);
-      return;
-    }
-
-    const doc = await vscode.workspace.openTextDocument(target);
-    await vscode.window.showTextDocument(doc, { preview: false });
-  }
-
-  private async findWorkspaceFileByName(fileName: string): Promise<vscode.Uri | undefined> {
-    const matches = await vscode.workspace.findFiles(`**/${fileName}`, '**/node_modules/**', 20);
-    return matches[0];
-  }
-
-  private createDecoration(color: string, label: string): vscode.TextEditorDecorationType {
-    return vscode.window.createTextEditorDecorationType({
-      borderWidth: '0 0 0 2px',
-      borderStyle: 'solid',
-      borderColor: color,
-      after: {
-        contentText: ` ${label}`,
-        color,
-        margin: '0 0 0 2px',
-      },
-    });
-  }
-}
+- The shared server is the default, so local server setup is optional.
+- Local development still works by pointing `codus.serverUrl` at `http://127.0.0.1:3000`.
+- Rooms are in-memory on the server and are cleared when the server restarts.
