@@ -680,6 +680,15 @@ enter      newline</div>
       }
 
       if (event.altKey) {
+        // Insert newline at caret position
+        event.preventDefault();
+        const start = chatInputEl.selectionStart;
+        const end = chatInputEl.selectionEnd;
+        const value = chatInputEl.value;
+        chatInputEl.value = value.slice(0, start) + '\n' + value.slice(end);
+        chatInputEl.selectionStart = chatInputEl.selectionEnd = start + 1;
+      } else {
+        // Submit on Enter
         event.preventDefault();
         chatFormEl.requestSubmit();
       }
