@@ -45,6 +45,10 @@ The default server URL is `http://127.0.0.1:3000` and can be changed with `codus
 
 ## Version history
 
+### 0.2.2
+- Added CI automation for integrity checks, builds, and VSIX packaging.
+- Generated a fresh VSIX release artifact for the latest fixes.
+
 ### 0.2.1
 - Refreshed release docs and packaging metadata.
 - Added repository integrity checks to catch accidental bulk overwrites.

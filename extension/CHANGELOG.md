@@ -15,6 +15,19 @@ All notable changes to this project are documented here.
 ### Fixed
 - Removed stale README/changelog content that no longer matched the current codebase.
 
+## [0.2.2] - 2026-04-13
+
+### Added
+- CI workflow to run integrity checks, build validation, and VSIX packaging on push and pull request.
+- Automated VSIX artifact upload for packaged builds.
+
+### Changed
+- Bumped the extension release version for the next packaged build.
+- Kept packaging safeguards enabled for local builds and release packaging.
+
+### Fixed
+- Repaired the release process so the latest build is packaged as a fresh VSIX instead of reusing the previous artifact.
+
 ## [0.2.0] - 2026-04-11
 
 ### Added
