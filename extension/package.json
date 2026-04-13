@@ -2,7 +2,7 @@
   "name": "codus",
   "displayName": "Codus",
   "description": "Code together, live. Room-based collaboration for VS Code.",
-  "version": "0.2.9",
+  "version": "0.2.10",
   "publisher": "codus-dev",
   "license": "MIT",
   "engines": {
@@ -79,7 +79,7 @@
       "properties": {
         "codus.serverUrl": {
           "type": "string",
-          "default": "http://127.0.0.1:3000",
+          "default": "https://codus.onrender.com",
           "description": "URL of the Codus collaboration server"
         }
       }

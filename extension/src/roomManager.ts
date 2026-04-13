@@ -146,7 +146,7 @@ export class RoomManager {
 
   private localServerAutoStartAttempted = false;
 
-  private serverUrl = 'http://127.0.0.1:3000';
+  private serverUrl = 'https://codus.onrender.com';
 
   private document: Y.Doc | null = null;
 
@@ -394,7 +394,7 @@ export class RoomManager {
 
   private async ensureSocket(): Promise<void> {
     const configuredServerUrl =
-      vscode.workspace.getConfiguration('codus').get<string>('serverUrl') ?? 'http://127.0.0.1:3000';
+      vscode.workspace.getConfiguration('codus').get<string>('serverUrl') ?? 'https://codus.onrender.com';
 
     if (configuredServerUrl !== this.serverUrl) {
       this.serverUrl = configuredServerUrl;

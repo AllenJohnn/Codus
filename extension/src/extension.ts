@@ -299,7 +299,7 @@ export function activate(context: vscode.ExtensionContext): void {
         if (sharedServer) {
           const parsedServer = tryParseHttpUrl(sharedServer);
           if (parsedServer) {
-            const currentServer = vscode.workspace.getConfiguration('codus').get<string>('serverUrl') ?? 'http://127.0.0.1:3000';
+            const currentServer = vscode.workspace.getConfiguration('codus').get<string>('serverUrl') ?? 'https://codus.onrender.com';
             if (currentServer !== parsedServer) {
               const picked = await vscode.window.showInformationMessage(
                 `Use shared Codus server ${parsedServer}?`,
@@ -375,7 +375,7 @@ function getErrorMessage(error: unknown): string {
 }
 
 async function runConnectionDiagnostics(): Promise<void> {
-  const configuredServer = vscode.workspace.getConfiguration('codus').get<string>('serverUrl') ?? 'http://127.0.0.1:3000';
+  const configuredServer = vscode.workspace.getConfiguration('codus').get<string>('serverUrl') ?? 'https://codus.onrender.com';
   const normalizedServer = configuredServer.replace(/\/$/, '');
 
   let parsed: URL;

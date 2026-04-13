@@ -108,6 +108,15 @@ type RoomData = {
 };
 
 const app = express();
+app.get('/', (_req, res) => {
+  res.json({
+    service: 'codus-server',
+    ok: true,
+    message: 'Codus collaboration server is running.',
+    health: '/health',
+  });
+});
+
 app.get('/health', (_req, res) => {
   res.json({ ok: true, yWebsocketMessageType: messageSync });
 });
