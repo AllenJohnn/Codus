@@ -96,7 +96,8 @@ export function activate(context: vscode.ExtensionContext): void {
         return;
       }
 
-      const deepLink = `vscode://${URI_AUTHORITY}/join?room=${encodeURIComponent(roomId)}`;
+      const serverUrl = roomManager.getServerUrl();
+      const deepLink = `vscode://${URI_AUTHORITY}/join?room=${encodeURIComponent(roomId)}&server=${encodeURIComponent(serverUrl)}`;
       await vscode.env.clipboard.writeText(deepLink);
       void vscode.window.showInformationMessage('Copied room link');
     },
@@ -261,6 +262,9 @@ export function activate(context: vscode.ExtensionContext): void {
         void vscode.window.showErrorMessage(getErrorMessage(error));
       }
     }),
+    vscode.commands.registerCommand('codus.connectionDiagnostics', async () => {
+      await runConnectionDiagnostics();
+    }),
     vscode.workspace.onDidChangeTextDocument((event) => roomManager.handleTextDocumentChange(event)),
     vscode.window.onDidChangeTextEditorSelection((event) => {
       if (!roomManager.getActiveRoomId()) {
@@ -289,6 +293,26 @@ export function activate(context: vscode.ExtensionContext): void {
         const room = params.get('room')?.trim();
         if (!room) {
           return;
+        }
+
+        const sharedServer = params.get('server')?.trim();
+        if (sharedServer) {
+          const parsedServer = tryParseHttpUrl(sharedServer);
+          if (parsedServer) {
+            const currentServer = vscode.workspace.getConfiguration('codus').get<string>('serverUrl') ?? 'http://127.0.0.1:3000';
+            if (currentServer !== parsedServer) {
+              const picked = await vscode.window.showInformationMessage(
+                `Use shared Codus server ${parsedServer}?`,
+                { modal: true },
+                'Use Shared Server',
+                'Keep Current',
+              );
+
+              if (picked === 'Use Shared Server') {
+                await vscode.workspace.getConfiguration('codus').update('serverUrl', parsedServer, vscode.ConfigurationTarget.Global);
+              }
+            }
+          }
         }
 
         await vscode.commands.executeCommand('codus.joinRoom', room);
@@ -348,6 +372,61 @@ function getErrorMessage(error: unknown): string {
   }
 
   return 'Unknown error';
+}
+
+async function runConnectionDiagnostics(): Promise<void> {
+  const configuredServer = vscode.workspace.getConfiguration('codus').get<string>('serverUrl') ?? 'http://127.0.0.1:3000';
+  const normalizedServer = configuredServer.replace(/\/$/, '');
+
+  let parsed: URL;
+  try {
+    parsed = new URL(normalizedServer);
+  } catch {
+    void vscode.window.showErrorMessage(`Codus diagnostics: Invalid codus.serverUrl: ${configuredServer}`);
+    return;
+  }
+
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    void vscode.window.showErrorMessage(`Codus diagnostics: Unsupported protocol in codus.serverUrl: ${parsed.protocol}`);
+    return;
+  }
+
+  const healthUrl = new URL('/health', normalizedServer).toString();
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 3000);
+
+  try {
+    const response = await fetch(healthUrl, { signal: controller.signal });
+    const payload = (await response.json()) as { ok?: boolean };
+
+    if (response.ok && payload?.ok) {
+      void vscode.window.showInformationMessage(`Codus diagnostics: OK. Server reachable at ${normalizedServer}`);
+      return;
+    }
+
+    void vscode.window.showWarningMessage(
+      `Codus diagnostics: Server responded at ${normalizedServer} but health check failed (status ${response.status}).`,
+    );
+  } catch {
+    void vscode.window.showErrorMessage(
+      `Codus diagnostics: Cannot reach ${normalizedServer}. Start Codus server or update codus.serverUrl.`,
+    );
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function tryParseHttpUrl(input: string): string | null {
+  try {
+    const parsed = new URL(input);
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return null;
+    }
+
+    return parsed.toString().replace(/\/$/, '');
+  } catch {
+    return null;
+  }
 }
 
 export function deactivate(): void {}

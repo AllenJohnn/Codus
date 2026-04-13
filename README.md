@@ -1,41 +1,119 @@
+﻿import * as path from 'path';
+import * as vscode from 'vscode';
+import { RoomUser } from './types';
 
-# Codus
+export class CursorManager implements vscode.Disposable {
+  private readonly decorations = new Map<string, vscode.TextEditorDecorationType>();
 
-Codus is a room-based VS Code collaboration workspace with a local extension and a Socket.IO/Yjs server.
+  private followedUserId: string | null = null;
 
-## Layout
+  private followPromptKey: string | null = null;
 
-- `extension/` contains the VS Code extension and webview UI.
-- `server/` contains the collaboration server.
-- `scripts/verify-integrity.js` guards against accidental bulk overwrites of tracked source files.
+  public render(editor: vscode.TextEditor, users: RoomUser[], localPeerId: string | null): void {
+    const remoteUsers = users.filter((user) => user.id !== localPeerId && user.cursor);
+    const activeIds = new Set(remoteUsers.map((user) => user.id));
 
-## Requirements
+    for (const [userId, decoration] of Array.from(this.decorations.entries())) {
+      if (!activeIds.has(userId)) {
+        editor.setDecorations(decoration, []);
+        decoration.dispose();
+        this.decorations.delete(userId);
+      }
+    }
 
-- Node.js 20+
-- npm 10+
-- VS Code 1.88+
+    for (const user of remoteUsers) {
+      if (!user.cursor) {
+        continue;
+      }
 
-## Getting Started
+      let decoration = this.decorations.get(user.id);
+      if (!decoration) {
+        decoration = this.createDecoration(user.color, user.name);
+        this.decorations.set(user.id, decoration);
+      }
 
-1. Run `npm install` from the repository root.
-2. Run `npm run build` to verify the extension and server compile cleanly.
-3. Run `npm run start -w server` to start the collaboration server.
-4. Open the repository in VS Code and press `F5` to launch the extension development host.
+      const position = new vscode.Position(user.cursor.line, user.cursor.character);
+      const range = new vscode.Range(position, position);
+      editor.setDecorations(decoration, [range]);
 
-## Commands
+      if (this.followedUserId === user.id) {
+        editor.revealRange(range, vscode.TextEditorRevealType.InCenter);
+        void this.maybePromptSwitchFile(user, editor.document.fileName);
+      }
+    }
+  }
 
-- `npm run build` - build the extension and server.
-- `npm run verify` - run the repository integrity check.
-- `npm run watch` - watch both workspaces.
-- `npm run clean` - remove generated build output.
-- `npm run package -w extension` - create the VSIX package from the extension workspace.
+  public setFollowedUser(userId: string | null): void {
+    this.followedUserId = userId;
+  }
 
-## Configuration
+  public getFollowedUserId(): string | null {
+    return this.followedUserId;
+  }
 
-- `codus.serverUrl` points the extension at the collaboration server.
+  public clear(): void {
+    for (const decoration of Array.from(this.decorations.values())) {
+      decoration.dispose();
+    }
 
-## Notes
+    this.decorations.clear();
+  }
 
-- Room state is kept in memory on the server.
-- Room codes are 4 digits.
-- The extension packages only the files required for the VSIX.
+  public dispose(): void {
+    this.clear();
+  }
+
+  private async maybePromptSwitchFile(user: RoomUser, currentPath: string): Promise<void> {
+    if (!user.currentFile) {
+      return;
+    }
+
+    const currentName = path.basename(currentPath);
+    if (user.currentFile === currentName) {
+      this.followPromptKey = null;
+      return;
+    }
+
+    const nextKey = `${user.id}:${user.currentFile}`;
+    if (this.followPromptKey === nextKey) {
+      return;
+    }
+    this.followPromptKey = nextKey;
+
+    const picked = await vscode.window.showQuickPick(['Yes', 'No'], {
+      title: `${user.name} is editing ${user.currentFile} - switch to that file?`,
+      ignoreFocusOut: true,
+    });
+
+    if (picked !== 'Yes') {
+      return;
+    }
+
+    const target = await this.findWorkspaceFileByName(user.currentFile);
+    if (!target) {
+      void vscode.window.showWarningMessage(`Could not find ${user.currentFile} in workspace.`);
+      return;
+    }
+
+    const doc = await vscode.workspace.openTextDocument(target);
+    await vscode.window.showTextDocument(doc, { preview: false });
+  }
+
+  private async findWorkspaceFileByName(fileName: string): Promise<vscode.Uri | undefined> {
+    const matches = await vscode.workspace.findFiles(`**/${fileName}`, '**/node_modules/**', 20);
+    return matches[0];
+  }
+
+  private createDecoration(color: string, label: string): vscode.TextEditorDecorationType {
+    return vscode.window.createTextEditorDecorationType({
+      borderWidth: '0 0 0 2px',
+      borderStyle: 'solid',
+      borderColor: color,
+      after: {
+        contentText: ` ${label}`,
+        color,
+        margin: '0 0 0 2px',
+      },
+    });
+  }
+}

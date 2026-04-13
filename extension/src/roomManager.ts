@@ -1,4 +1,5 @@
 import * as fs from 'fs';
+import * as net from 'net';
 import { spawn } from 'child_process';
 import * as path from 'path';
 import * as vscode from 'vscode';
@@ -37,7 +38,11 @@ type ClientToServerEvents = {
   [SOCKET_EVENTS.CREATE_ROOM]: (payload: { userName: string }, callback: (response: { roomId: string }) => void) => void;
   [SOCKET_EVENTS.JOIN_ROOM]: (
     payload: { roomId: string; userName: string; initialState?: Uint8Array; initialContent?: string },
-    callback: (response: { roomId: string; users: RoomUser[]; isReadOnly: boolean; isCreator: boolean }) => void,
+    callback: (
+      response:
+        | { roomId: string; users: RoomUser[]; isReadOnly: boolean; isCreator: boolean }
+        | { error: string },
+    ) => void,
   ) => void;
   [SOCKET_EVENTS.LEAVE_ROOM]: (payload: { roomId: string }) => void;
   [SOCKET_EVENTS.CODE_CHANGE]: (payload: { roomId: string; update: Uint8Array }) => void;
@@ -72,6 +77,24 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+async function isTcpPortOccupied(host: string, port: number): Promise<boolean> {
+  return new Promise<boolean>((resolve) => {
+    const socket = new net.Socket();
+
+    const done = (occupied: boolean): void => {
+      socket.removeAllListeners();
+      socket.destroy();
+      resolve(occupied);
+    };
+
+    socket.setTimeout(500);
+    socket.once('connect', () => done(true));
+    socket.once('timeout', () => done(false));
+    socket.once('error', () => done(false));
+    socket.connect(port, host);
+  });
+}
+
 async function isHttpEndpointReachable(serverUrl: string): Promise<boolean> {
   try {
     const url = new URL('/health', serverUrl);
@@ -87,6 +110,20 @@ async function isHttpEndpointReachable(serverUrl: string): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+async function waitForEndpoint(serverUrl: string, timeoutMs: number): Promise<boolean> {
+  const deadline = Date.now() + timeoutMs;
+
+  while (Date.now() < deadline) {
+    if (await isHttpEndpointReachable(serverUrl)) {
+      return true;
+    }
+
+    await delay(250);
+  }
+
+  return false;
 }
 
 function isLocalDevelopmentServerUrl(serverUrl: string): boolean {
@@ -155,6 +192,10 @@ export class RoomManager {
 
   public getUserName(): string {
     return this.userName;
+  }
+
+  public getServerUrl(): string {
+    return vscode.workspace.getConfiguration('codus').get<string>('serverUrl') ?? this.serverUrl;
   }
 
   public getActiveRoomId(): string | null {
@@ -352,9 +393,16 @@ export class RoomManager {
   }
 
   private async ensureSocket(): Promise<void> {
+    const configuredServerUrl =
+      vscode.workspace.getConfiguration('codus').get<string>('serverUrl') ?? 'http://127.0.0.1:3000';
+
+    if (configuredServerUrl !== this.serverUrl) {
+      this.serverUrl = configuredServerUrl;
+      this.localServerAutoStartAttempted = false;
+      this.resetSocketConnection();
+    }
+
     if (!this.socket) {
-      this.serverUrl =
-        vscode.workspace.getConfiguration('codus').get<string>('serverUrl') ?? 'http://127.0.0.1:3000';
       this.socket = io(this.serverUrl, {
         autoConnect: false,
         transports: ['websocket', 'polling'],
@@ -400,15 +448,58 @@ export class RoomManager {
       throw new Error(toServerUnavailableMessage(this.serverUrl));
     }
 
-    const serverReady = await this.waitForServerReady();
+    const serverReady = await this.waitForServerReady(3000);
     if (!serverReady) {
-      throw new Error(toServerUnavailableMessage(this.serverUrl));
+      const fallbackUrl = await this.tryStartOnAvailableLocalPort(embeddedServerScript, this.serverUrl);
+      if (!fallbackUrl) {
+        throw new Error(toServerUnavailableMessage(this.serverUrl));
+      }
+
+      await vscode.workspace.getConfiguration('codus').update('serverUrl', fallbackUrl, vscode.ConfigurationTarget.Global);
+      this.serverUrl = fallbackUrl;
+      this.resetSocketConnection();
+
+      const fallbackReady = await this.waitForServerReady(5000);
+      if (!fallbackReady) {
+        throw new Error(toServerUnavailableMessage(this.serverUrl));
+      }
     }
   }
 
-  private async startEmbeddedServer(serverScriptPath: string): Promise<boolean> {
+  private async tryStartOnAvailableLocalPort(serverScriptPath: string, currentServerUrl: string): Promise<string | null> {
     try {
-      const targetPort = this.resolveServerPort(this.serverUrl);
+      const parsed = new URL(currentServerUrl);
+      const host = parsed.hostname;
+      const basePort = this.resolveServerPort(currentServerUrl);
+
+      for (let offset = 1; offset <= 20; offset += 1) {
+        const candidatePort = basePort + offset;
+        const occupied = await isTcpPortOccupied(host, candidatePort);
+        if (occupied) {
+          continue;
+        }
+
+        const candidateUrl = `${parsed.protocol}//${host}:${candidatePort}`;
+        const started = await this.startEmbeddedServer(serverScriptPath, candidatePort);
+        if (!started) {
+          continue;
+        }
+
+        const reachable = await waitForEndpoint(candidateUrl, 4000);
+        if (reachable) {
+          return candidateUrl;
+        }
+      }
+    } catch {
+      return null;
+    }
+
+    return null;
+  }
+
+  private async startEmbeddedServer(serverScriptPath: string, explicitPort?: number): Promise<boolean> {
+    try {
+      const targetPort = explicitPort ?? this.resolveServerPort(this.serverUrl);
       const child = spawn(process.execPath, [serverScriptPath], {
         detached: true,
         env: {
@@ -441,6 +532,16 @@ export class RoomManager {
     } catch {
       return 3000;
     }
+  }
+
+  private resetSocketConnection(): void {
+    if (!this.socket) {
+      return;
+    }
+
+    this.socket.removeAllListeners();
+    this.socket.disconnect();
+    this.socket = null;
   }
 
   private async waitForServerReady(timeoutMs = 15000): Promise<boolean> {
@@ -733,6 +834,11 @@ export class RoomManager {
         },
         (response) => {
           clearTimeout(timeout);
+          if ('error' in response) {
+            reject(new Error(response.error));
+            return;
+          }
+
           resolve(response);
         },
       );

@@ -6,6 +6,7 @@ import * as Y from 'yjs';
 import { messageSync } from 'y-websocket';
 
 const PORT = Number(process.env.PORT ?? 3000);
+const PORT_EXPLICITLY_SET = typeof process.env.PORT === 'string' && process.env.PORT.trim().length > 0;
 const ROOM_MIN = 1000;
 const ROOM_MAX = 9999;
 
@@ -77,7 +78,11 @@ type ClientToServerEvents = {
   [SOCKET_EVENTS.CREATE_ROOM]: (payload: { userName: string }, callback: (response: { roomId: string }) => void) => void;
   [SOCKET_EVENTS.JOIN_ROOM]: (
     payload: { roomId: string; userName: string; initialState?: Uint8Array; initialContent?: string },
-    callback: (response: { roomId: string; users: RoomUser[]; isReadOnly: boolean; isCreator: boolean }) => void,
+    callback: (
+      response:
+        | { roomId: string; users: RoomUser[]; isReadOnly: boolean; isCreator: boolean }
+        | { error: string },
+    ) => void,
   ) => void;
   [SOCKET_EVENTS.LEAVE_ROOM]: (payload: { roomId: string }) => void;
   [SOCKET_EVENTS.CODE_CHANGE]: (payload: { roomId: string; update: Uint8Array }) => void;
@@ -214,9 +219,17 @@ io.on('connection', (socket) => {
     const roomId = payload.roomId.trim().toUpperCase();
     const userName = payload.userName.trim() || `Guest-${socket.id.slice(0, 4)}`;
 
+    const existingRoom = rooms.get(roomId);
+    if (!existingRoom) {
+      callback({
+        error: `Room ${roomId} was not found on this server. Verify codus.serverUrl and room code.`,
+      });
+      return;
+    }
+
     leaveCurrentRoom(socket);
 
-    const room = getOrCreateRoom(roomId, socket.id);
+    const room = existingRoom;
     if (!room.creatorId) {
       room.creatorId = socket.id;
     }
@@ -382,6 +395,40 @@ io.on('connection', (socket) => {
   });
 });
 
-server.listen(PORT, () => {
-  console.log(`Codus server running on port ${PORT}`);
-});
+function listenWithPortFallback(startPort: number): void {
+  const maxAttempts = PORT_EXPLICITLY_SET ? 1 : 20;
+
+  const tryListen = (attempt: number): void => {
+    const port = startPort + attempt;
+
+    const onError = (error: NodeJS.ErrnoException): void => {
+      server.off('listening', onListening);
+
+      if (error.code === 'EADDRINUSE' && attempt + 1 < maxAttempts) {
+        tryListen(attempt + 1);
+        return;
+      }
+
+      if (error.code === 'EADDRINUSE') {
+        console.error(`Port ${port} is already in use. Set PORT to a free port and restart Codus server.`);
+      } else {
+        console.error(error);
+      }
+
+      process.exitCode = 1;
+    };
+
+    const onListening = (): void => {
+      server.off('error', onError);
+      console.log(`Codus server running on port ${port}`);
+    };
+
+    server.once('error', onError);
+    server.once('listening', onListening);
+    server.listen(port);
+  };
+
+  tryListen(0);
+}
+
+listenWithPortFallback(PORT);

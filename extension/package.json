@@ -2,7 +2,7 @@
   "name": "codus",
   "displayName": "Codus",
   "description": "Code together, live. Room-based collaboration for VS Code.",
-  "version": "0.2.6",
+  "version": "0.2.9",
   "publisher": "codus-dev",
   "license": "MIT",
   "engines": {
@@ -26,10 +26,6 @@
   ],
   "activationEvents": [
     "onStartupFinished",
-    "onView:codus.sidebarView",
-    "onCommand:codus.createRoom",
-    "onCommand:codus.joinRoom",
-    "onCommand:codus.leaveRoom",
     "onUri"
   ],
   "main": "./out/extension.js",
@@ -54,6 +50,10 @@
       {
         "command": "codus.leaveRoom",
         "title": "Leave Room"
+      },
+      {
+        "command": "codus.connectionDiagnostics",
+        "title": "Connection Diagnostics"
       }
     ],
     "viewsContainers": {

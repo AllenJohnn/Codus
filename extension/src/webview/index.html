@@ -13,29 +13,30 @@
     }
 
     :root {
-      --panel: #111;
-      --surface-0: #000;
-      --surface-1: #0a0a0a;
-      --text-strong: #fff;
-      --text-mid: #888;
-      --text-label: #444;
-      --text-muted: #333;
-      --text-header: #555;
-      --line: #222;
-      --line-input: #2a2a2a;
-      --line-active: #555;
-      --danger-line: #500;
-      --danger-text: #c55;
+      --panel: #0f141a;
+      --surface-0: #121922;
+      --surface-1: #17202b;
+      --text-strong: #f2f7ff;
+      --text-mid: #c2d0e2;
+      --text-label: #8da3bd;
+      --text-muted: #6c819b;
+      --text-header: #a8bcd4;
+      --line: #2f3d4f;
+      --line-input: #3a4c61;
+      --line-active: #7ab7ff;
+      --danger-line: #8f3f4a;
+      --danger-text: #ffbcc5;
+      --ok: #7be4b8;
     }
 
     html,
     body {
       margin: 0;
       padding: 0;
-      background: var(--panel);
+      background: radial-gradient(circle at top right, #1a2430 0%, var(--panel) 38%);
       color: var(--text-mid);
       font-family: 'Courier New', monospace;
-      font-size: 11px;
+      font-size: 12px;
       line-height: 1.4;
     }
 
@@ -48,8 +49,8 @@
 
     .panel {
       display: grid;
-      gap: 8px;
-      padding: 8px;
+      gap: 10px;
+      padding: 10px;
     }
 
     .reconnect-banner {
@@ -68,19 +69,21 @@
 
     .section {
       border: 1px solid var(--line);
-      padding: 12px 14px;
+      background: rgba(255, 255, 255, 0.02);
+      padding: 12px;
       display: grid;
       gap: 8px;
     }
 
     .header {
       border: 1px solid var(--line);
+      background: rgba(255, 255, 255, 0.02);
       padding: 12px 14px;
       display: flex;
       align-items: center;
       gap: 8px;
       color: var(--text-header);
-      font-size: 9px;
+      font-size: 10px;
       letter-spacing: 0.12em;
       text-transform: uppercase;
     }
@@ -94,7 +97,7 @@
 
     .label {
       color: var(--text-label);
-      font-size: 9px;
+      font-size: 10px;
       letter-spacing: 0.1em;
       text-transform: uppercase;
     }
@@ -106,14 +109,14 @@
     .room-id {
       color: var(--text-strong);
       font-size: 2rem;
-      font-weight: 400;
+      font-weight: 700;
       letter-spacing: 0.18em;
       line-height: 1;
       margin: 0;
     }
 
     .room-id.disconnected {
-      color: #333;
+      color: #576d87;
     }
 
     .room-meta {
@@ -128,28 +131,29 @@
       display: inline-flex;
       align-items: center;
       gap: 5px;
-      font-size: 10px;
+      font-size: 11px;
       text-transform: lowercase;
       white-space: nowrap;
     }
 
     .status-dot {
-      width: 5px;
-      height: 5px;
-      background: #333;
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      background: #5d748f;
       flex: 0 0 auto;
     }
 
     .status-dot.connected {
-      background: #fff;
+      background: var(--ok);
     }
 
     .status-text.disconnected {
-      color: #333;
+      color: #8399b5;
     }
 
     .status-text.connected {
-      color: #888;
+      color: var(--ok);
     }
 
     .status-right {
@@ -162,26 +166,33 @@
 
     .user-badge {
       border: 1px solid var(--line);
-      color: #666;
+      color: #acc1da;
       padding: 1px 5px;
-      font-size: 10px;
+      font-size: 11px;
       white-space: nowrap;
       text-transform: lowercase;
     }
 
     button {
       text-transform: lowercase;
-      border: 1px solid #333;
+      border: 1px solid #4a6078;
       background: transparent;
       color: var(--text-mid);
-      padding: 4px 6px;
-      font-size: 10px;
+      padding: 5px 8px;
+      font-size: 11px;
       cursor: pointer;
     }
 
     button:hover {
-      border-color: #555;
+      border-color: #8abfff;
       color: var(--text-strong);
+    }
+
+    button:focus-visible,
+    input:focus-visible,
+    textarea:focus-visible {
+      outline: 2px solid #7ab7ff;
+      outline-offset: 1px;
     }
 
     #leaveRoom {
@@ -209,9 +220,10 @@
     .create-btn {
       width: 100%;
       border: none;
-      background: var(--text-strong);
-      color: #000;
-      font-size: 11px;
+      background: #d8e9ff;
+      color: #10283f;
+      font-size: 12px;
+      font-weight: 700;
       letter-spacing: 0.08em;
       padding: 8px;
     }
@@ -235,7 +247,7 @@
       background: var(--surface-0);
       color: var(--text-mid);
       padding: 7px 8px;
-      font-size: 10px;
+      font-size: 11px;
       outline: none;
     }
 
@@ -266,8 +278,8 @@
     .identity {
       border-left: 2px solid #222;
       padding-left: 8px;
-      color: #444;
-      font-size: 10px;
+      color: #97adc8;
+      font-size: 11px;
       text-transform: lowercase;
       min-height: 14px;
     }
@@ -313,8 +325,8 @@
     }
 
     .user-name {
-      color: #aaa;
-      font-size: 11px;
+      color: #e5efff;
+      font-size: 12px;
       text-transform: lowercase;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -322,7 +334,7 @@
     }
 
     .user-file {
-      color: #444;
+      color: #93a9c3;
       font-size: 9px;
       text-transform: lowercase;
       overflow: hidden;
@@ -338,15 +350,15 @@
     }
 
     .you-tag {
-      color: #333;
+      color: #95abc6;
       font-size: 9px;
       text-transform: lowercase;
       margin-left: auto;
     }
 
     .waiting {
-      color: #2a2a2a;
-      font-size: 10px;
+      color: #8ba3be;
+      font-size: 11px;
       text-transform: lowercase;
     }
 
@@ -355,20 +367,20 @@
       max-height: 220px;
       overflow-y: auto;
       background: var(--surface-1);
-      border: 1px solid #1a1a1a;
+      border: 1px solid #324357;
       padding: 8px;
       display: grid;
       gap: 4px;
     }
 
     .chat-empty {
-      color: #2a2a2a;
-      font-size: 10px;
+      color: #8ba3be;
+      font-size: 11px;
       text-transform: lowercase;
     }
 
     .chat-message {
-      font-size: 10px;
+      font-size: 11px;
       line-height: 1.6;
       color: var(--text-mid);
       white-space: pre-wrap;
@@ -384,7 +396,7 @@
     .chat-system {
       text-align: center;
       font-size: 10px;
-      color: #333;
+      color: #9bb0ca;
       font-style: italic;
       padding-top: 4px;
       padding-bottom: 2px;
@@ -398,7 +410,7 @@
       align-items: center;
       gap: 6px;
       margin-bottom: 2px;
-      color: #555;
+      color: #9ab0cb;
       font-size: 9px;
       text-transform: lowercase;
     }
@@ -411,9 +423,9 @@
     .chat-code {
       margin-top: 3px;
       margin-bottom: 3px;
-      border: 1px solid #1f1f1f;
-      background: #000;
-      color: #aaa;
+      border: 1px solid #364a60;
+      background: #0d141c;
+      color: #d9e8fa;
       padding: 6px;
       white-space: pre-wrap;
       overflow-x: auto;
@@ -430,18 +442,18 @@
     }
 
     .chat-copy {
-      border: 1px solid #2a2a2a;
+      border: 1px solid #4a6078;
       padding: 1px 5px;
       font-size: 9px;
-      color: #777;
+      color: #b8cbe2;
     }
 
     .chat-author {
-      color: #666;
+      color: #dce9fb;
     }
 
     .chat-index {
-      color: #444;
+      color: #8fa7c2;
     }
 
     .insert-row {
@@ -452,25 +464,25 @@
     }
 
     .insert-label {
-      color: #333;
+      color: #9ab0ca;
       font-size: 9px;
       text-transform: lowercase;
     }
 
     .chat-insert {
-      border: 1px solid #1e1e1e;
+      border: 1px solid #4a6078;
       padding: 2px 6px;
       font-size: 9px;
-      color: #555;
+      color: #b8cbe2;
       background: transparent;
     }
 
     #chatInput {
       border: 1px solid var(--line-input);
       background: #000;
-      color: #888;
+      color: #c2d0e2;
       padding: 7px 8px;
-      font-size: 10px;
+      font-size: 11px;
       line-height: 1.5;
       height: 56px;
       max-height: 56px;
@@ -482,7 +494,7 @@
     }
 
     #chatInput:focus {
-      border-color: #555;
+      border-color: #7ab7ff;
       color: #fff;
     }
 
@@ -493,17 +505,18 @@
 
     #chatForm button {
       border: none;
-      background: #fff;
-      color: #000;
+      background: #d8e9ff;
+      color: #10283f;
       min-width: 52px;
       padding: 0 8px;
-      font-size: 10px;
+      font-size: 11px;
+      font-weight: 700;
       letter-spacing: 0.04em;
     }
 
     .hint {
       text-align: right;
-      color: #2a2a2a;
+      color: #859cb8;
       font-size: 9px;
       white-space: pre;
       text-transform: lowercase;
