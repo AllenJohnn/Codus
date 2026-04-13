@@ -1,12 +1,4 @@
 {
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/AllenJohnn/Codus"
-  },
-  "homepage": "https://allenjohnnportfolio.vercel.app/",
-  "bugs": {
-    "url": "https://github.com/AllenJohnn/Codus/issues"
-  },
   "name": "codus",
   "displayName": "Codus",
   "description": "Code together, live. Room-based collaboration for VS Code.",
@@ -32,7 +24,7 @@
     "chat",
     "multiplayer"
   ],
-
+  "icon": "images/icon.png",
   "activationEvents": [
     "onStartupFinished",
     "onView:codus.sidebarView",
@@ -103,8 +95,7 @@
     "bundle": "esbuild src/extension.ts --bundle --platform=node --format=cjs --external:vscode --outfile=out/extension.js",
     "watch": "tsc -p tsconfig.json -w",
     "clean": "node -e \"require('fs').rmSync('out',{recursive:true,force:true})\"",
-    "package": "npx @vscode/vsce package --allow-missing-repository --skip-license --no-dependencies",
-    "lint": "tsc --noEmit"
+    "package": "npx @vscode/vsce package --allow-missing-repository --skip-license --no-dependencies"
   },
   "dependencies": {
     "socket.io-client": "^4.8.1",
