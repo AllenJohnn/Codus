@@ -36,8 +36,8 @@
       background: radial-gradient(circle at top right, #1a2430 0%, var(--panel) 38%);
       color: var(--text-mid);
       font-family: 'Courier New', monospace;
-      font-size: 12px;
-      line-height: 1.4;
+      font-size: 13px;
+      line-height: 1.5;
     }
 
     input,
@@ -78,14 +78,15 @@
     .header {
       border: 1px solid var(--line);
       background: rgba(255, 255, 255, 0.02);
-      padding: 12px 14px;
+      padding: 14px 16px;
       display: flex;
       align-items: center;
       gap: 8px;
-      color: var(--text-header);
-      font-size: 10px;
+      color: var(--text-strong);
+      font-size: 12px;
       letter-spacing: 0.12em;
       text-transform: uppercase;
+      font-weight: 600;
     }
 
     .header-sep {
@@ -96,10 +97,12 @@
     }
 
     .label {
-      color: var(--text-label);
-      font-size: 10px;
+      color: var(--text-strong);
+      font-size: 12px;
       letter-spacing: 0.1em;
       text-transform: uppercase;
+      font-weight: 600;
+      margin-bottom: 4px;
     }
 
     .room-block.disconnected {
@@ -108,11 +111,12 @@
 
     .room-id {
       color: var(--text-strong);
-      font-size: 2rem;
+      font-size: 2.4rem;
       font-weight: 700;
       letter-spacing: 0.18em;
       line-height: 1;
       margin: 0;
+      text-shadow: 0 0 10px rgba(138, 191, 255, 0.2);
     }
 
     .room-id.disconnected {
@@ -175,17 +179,20 @@
 
     button {
       text-transform: lowercase;
-      border: 1px solid #4a6078;
+      border: 1px solid #5a7a9e;
       background: transparent;
-      color: var(--text-mid);
-      padding: 5px 8px;
-      font-size: 11px;
+      color: var(--text-strong);
+      padding: 6px 10px;
+      font-size: 12px;
+      font-weight: 500;
       cursor: pointer;
+      transition: all 0.15s ease;
     }
 
     button:hover {
       border-color: #8abfff;
-      color: var(--text-strong);
+      color: #ffffff;
+      background: rgba(138, 191, 255, 0.1);
     }
 
     button:focus-visible,
@@ -219,19 +226,21 @@
 
     .create-btn {
       width: 100%;
-      border: none;
-      background: #d8e9ff;
-      color: #10283f;
+      border: 1px solid #5a7a9e;
+      background: #2a5f9e;
+      color: #e5f0ff;
       font-size: 12px;
-      font-weight: 700;
+      font-weight: 600;
       letter-spacing: 0.08em;
-      padding: 8px;
+      padding: 10px;
+      cursor: pointer;
+      transition: all 0.15s ease;
     }
 
     .create-btn:hover {
-      border: none;
-      color: #000;
-      background: #dcdcdc;
+      border-color: #8abfff;
+      color: #ffffff;
+      background: #3a6fae;
     }
 
     .row-flush {
@@ -245,9 +254,10 @@
       min-width: 0;
       border: 1px solid var(--line-input);
       background: var(--surface-0);
-      color: var(--text-mid);
-      padding: 7px 8px;
-      font-size: 11px;
+      color: var(--text-strong);
+      padding: 8px 10px;
+      font-size: 12px;
+      font-weight: 500;
       outline: none;
     }
 
@@ -259,6 +269,7 @@
     input:focus {
       border-color: var(--line-active);
       color: var(--text-strong);
+      background: rgba(122, 183, 255, 0.05);
     }
 
     #joinCode {
@@ -276,16 +287,18 @@
     }
 
     .identity {
-      border-left: 2px solid #222;
-      padding-left: 8px;
-      color: #97adc8;
-      font-size: 11px;
+      border-left: 3px solid #7ab7ff;
+      padding-left: 10px;
+      color: var(--text-mid);
+      font-size: 12px;
       text-transform: lowercase;
-      min-height: 14px;
+      min-height: 18px;
+      font-weight: 500;
     }
 
     .identity-name {
-      color: var(--text-mid);
+      color: var(--text-strong);
+      font-weight: 600;
     }
 
     #users {
@@ -325,8 +338,9 @@
     }
 
     .user-name {
-      color: #e5efff;
-      font-size: 12px;
+      color: #ffffff;
+      font-size: 13px;
+      font-weight: 500;
       text-transform: lowercase;
       overflow: hidden;
       text-overflow: ellipsis;
@@ -357,9 +371,10 @@
     }
 
     .waiting {
-      color: #8ba3be;
-      font-size: 11px;
+      color: #a8bcd4;
+      font-size: 12px;
       text-transform: lowercase;
+      font-weight: 500;
     }
 
     #chatLog {
@@ -380,9 +395,9 @@
     }
 
     .chat-message {
-      font-size: 11px;
+      font-size: 12px;
       line-height: 1.6;
-      color: var(--text-mid);
+      color: var(--text-strong);
       white-space: pre-wrap;
       word-break: break-word;
       padding-top: 6px;
@@ -409,10 +424,11 @@
       justify-content: space-between;
       align-items: center;
       gap: 6px;
-      margin-bottom: 2px;
-      color: #9ab0cb;
-      font-size: 9px;
+      margin-bottom: 3px;
+      color: #a8bcd4;
+      font-size: 11px;
       text-transform: lowercase;
+      font-weight: 500;
     }
 
     .chat-line {
@@ -421,14 +437,16 @@
     }
 
     .chat-code {
-      margin-top: 3px;
-      margin-bottom: 3px;
-      border: 1px solid #364a60;
-      background: #0d141c;
+      margin-top: 4px;
+      margin-bottom: 4px;
+      border: 1px solid #2a3f54;
+      background: #0a0e14;
       color: #d9e8fa;
-      padding: 6px;
+      padding: 8px;
       white-space: pre-wrap;
       overflow-x: auto;
+      font-size: 11px;
+      line-height: 1.5;
     }
 
     .chat-code-wrap {
@@ -459,30 +477,39 @@
     .insert-row {
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 8px;
       flex-wrap: wrap;
     }
 
     .insert-label {
-      color: #9ab0ca;
-      font-size: 9px;
+      color: var(--text-label);
+      font-size: 11px;
       text-transform: lowercase;
+      font-weight: 500;
     }
 
     .chat-insert {
-      border: 1px solid #4a6078;
-      padding: 2px 6px;
-      font-size: 9px;
-      color: #b8cbe2;
+      border: 1px solid #5a7a9e;
+      padding: 4px 8px;
+      font-size: 11px;
+      color: var(--text-strong);
       background: transparent;
+      font-weight: 500;
+    }
+
+    .chat-insert:hover {
+      border-color: #8abfff;
+      color: #ffffff;
+      background: rgba(138, 191, 255, 0.1);
     }
 
     #chatInput {
       border: 1px solid var(--line-input);
-      background: #000;
-      color: #c2d0e2;
-      padding: 7px 8px;
-      font-size: 11px;
+      background: #0d1419;
+      color: var(--text-strong);
+      padding: 8px 10px;
+      font-size: 12px;
+      font-weight: 400;
       line-height: 1.5;
       height: 56px;
       max-height: 56px;
@@ -495,7 +522,8 @@
 
     #chatInput:focus {
       border-color: #7ab7ff;
-      color: #fff;
+      color: #ffffff;
+      background: rgba(13, 20, 25, 0.8);
     }
 
     .chat-send-row {
@@ -516,11 +544,49 @@
 
     .hint {
       text-align: right;
-      color: #859cb8;
-      font-size: 9px;
+      color: #95abc6;
+      font-size: 11px;
+      font-weight: 500;
       white-space: pre;
       text-transform: lowercase;
-      line-height: 1.4;
+      line-height: 1.5;
+    }
+
+    .footer {
+      margin: 24px 0 0 0;
+      padding: 16px 12px;
+      border-top: 1px solid #2f3d4f;
+      text-align: center;
+      background: rgba(0, 0, 0, 0.3);
+      font-size: 11px;
+      line-height: 1.6;
+      color: #8da3bd;
+    }
+
+    .footer a {
+      color: #8abfff;
+      text-decoration: none;
+      transition: color 0.2s ease;
+      font-weight: 500;
+    }
+
+    .footer a:hover {
+      color: #c2d0e2;
+      text-decoration: underline;
+    }
+
+    .footer-title {
+      color: var(--text-strong);
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+
+    .footer-links {
+      display: flex;
+      justify-content: center;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 4px;
     }
   </style>
 </head>
@@ -958,9 +1024,16 @@ enter      newline</div>
 
     render();
   </script>
-  <footer style="margin: 24px auto 0 auto; max-width: 420px; text-align: center; color: #444; font-size: 10px; border-top: 1px solid #222; padding: 16px 0 0 0; letter-spacing: 0.04em;">
-    <span style="color: #888;">Codus</span> &mdash; collaborative coding for VS Code.<br>
-    <span style="color: #333;">Created by Allen John &mdash; <a href="https://github.com/allenjohn/codus" style="color: #555; text-decoration: underline;" target="_blank" rel="noopener">GitHub</a></span>
+  <footer class="footer">
+    <div class="footer-title">Codus — Collaborative Coding for VS Code</div>
+    <div class="footer-links">
+      <a href="https://github.com/AllenJohnn" target="_blank" rel="noopener">GitHub</a>
+      <span style="color: #556b83;">•</span>
+      <a href="https://linkedin.com/in/allenjohnjoy/" target="_blank" rel="noopener">LinkedIn</a>
+      <span style="color: #556b83;">•</span>
+      <a href="https://allenjohnnportfolio.vercel.app/" target="_blank" rel="noopener">Portfolio</a>
+    </div>
+    <div style="margin-top: 8px; color: #6c819b; font-size: 10px;">Created by Allen John</div>
   </footer>
 </body>
 </html>
