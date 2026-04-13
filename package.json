@@ -1,19 +1,124 @@
 {
   "name": "codus",
-  "private": true,
-  "version": "0.1.0",
-  "workspaces": [
-    "extension",
-    "server"
+  "displayName": "Codus — Collaborative Coding",
+  "description": "Real-time collaborative code editing for VS Code. Share a 4-digit room code, sync live with teammates — no account needed.",
+  "version": "0.3.0",
+  "publisher": "AllenJohn",
+  "license": "MIT",
+  "author": {
+    "name": "Allen John"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/AllenJohnn/Codus"
+  },
+  "bugs": {
+    "url": "https://github.com/AllenJohnn/Codus/issues"
+  },
+  "homepage": "https://github.com/AllenJohnn/Codus/blob/main/extension/README.md",
+  "galleryBanner": {
+    "color": "#0f1117",
+    "theme": "dark"
+  },
+  "pricing": "Free",
+  "engines": {
+    "vscode": "^1.88.0"
+  },
+  "categories": [
+    "Other",
+    "Programming Languages"
   ],
+  "keywords": [
+    "collaboration",
+    "live share",
+    "pair programming",
+    "real-time",
+    "multiplayer",
+    "sync",
+    "remote",
+    "collab",
+    "cursor sharing",
+    "chat"
+  ],
+  "activationEvents": [
+    "onStartupFinished",
+    "onUri"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "codus.createRoom",
+        "title": "Create Room",
+        "category": "Codus"
+      },
+      {
+        "command": "codus.joinRoom",
+        "title": "Join Room",
+        "category": "Codus"
+      },
+      {
+        "command": "codus.leaveRoom",
+        "title": "Leave Room",
+        "category": "Codus"
+      },
+      {
+        "command": "codus.connectionDiagnostics",
+        "title": "Connection Diagnostics",
+        "category": "Codus"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "codusSidebar",
+          "title": "Codus",
+          "icon": "media/collab.svg"
+        }
+      ]
+    },
+    "views": {
+      "codusSidebar": [
+        {
+          "type": "webview",
+          "id": "codus.sidebarView",
+          "name": "Codus Room"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "Codus",
+      "properties": {
+        "codus.serverUrl": {
+          "type": "string",
+          "default": "https://codus.onrender.com",
+          "markdownDescription": "URL of the Codus collaboration server. Defaults to the free shared server. [Learn how to self-host](https://github.com/AllenJohnn/Codus#self-hosting)."
+        }
+      }
+    },
+    "uriHandler": true
+  },
   "scripts": {
-    "prebuild": "npm run verify",
-    "build": "npm run build -w extension && npm run build -w server",
-    "verify": "node scripts/verify-integrity.js",
-    "watch": "concurrently \"npm run watch -w extension\" \"npm run watch -w server\"",
-    "clean": "npm run clean -w extension && npm run clean -w server"
+    "prebuild": "node ../scripts/verify-integrity.js",
+    "prepackage": "node ../scripts/verify-integrity.js",
+    "vscode:prepublish": "npm run build",
+    "build": "npm run typecheck && npm run bundle && npm run bundle:server",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "bundle": "esbuild src/extension.ts --bundle --platform=node --format=cjs --external:vscode --outfile=out/extension.js",
+    "bundle:server": "esbuild ../server/src/index.ts --bundle --platform=node --format=cjs --outfile=out/codus-server.js",
+    "watch": "tsc -p tsconfig.json -w",
+    "clean": "node -e \"require('fs').rmSync('out',{recursive:true,force:true})\"",
+    "package": "npx @vscode/vsce package --skip-license --no-dependencies"
+  },
+  "dependencies": {
+    "socket.io-client": "^4.8.1",
+    "uuid": "^11.1.0",
+    "yjs": "^13.6.26"
   },
   "devDependencies": {
-    "concurrently": "^9.1.2"
+    "@types/node": "^22.15.29",
+    "@types/vscode": "^1.88.0",
+    "esbuild": "^0.25.4",
+    "typescript": "^5.8.3"
   }
 }
