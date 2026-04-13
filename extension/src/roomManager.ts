@@ -170,7 +170,11 @@ export class RoomManager {
 
   private readonly suppressedDocumentUris = new Set<string>();
 
-  private readonly recentlySentUpdates = new Set<string>();
+  // Track recently sent updates with TTL to prevent unbounded growth
+  // Map from update key to timestamp of when it was sent (for auto-cleanup after 5 seconds)
+  private readonly recentlySentUpdates = new Map<string, number>();
+
+  private static readonly RECENTLY_SENT_TTL_MS = 5000;
 
   private readonly handlers: RoomManagerHandlers;
 
@@ -336,11 +340,25 @@ export class RoomManager {
   }
 
   public setActiveEditor(editor: vscode.TextEditor | undefined): void {
-    if (editor) {
-      // Keep room sync bound to the original document for this session.
+    if (editor && this.activeRoomId) {
+      // Update the sync target to follow active editor, enabling multi-file editing
+      this.activeDocumentUri = editor.document.uri.toString();
       void this.syncActiveEditor(editor);
       void this.sendFileChange(path.basename(editor.document.fileName));
     }
+  }
+
+  /**
+   * Cleanup method called on extension deactivation.
+   * Disconnects from room and cleans up socket connections.
+   */
+  public async dispose(): Promise<void> {
+    if (this.activeRoomId) {
+      await this.leaveRoom();
+    }
+
+    this.resetSocketConnection();
+    this.resetRoomState();
   }
 
   private async sendFileChange(fileName: string): Promise<void> {
@@ -513,8 +531,6 @@ export class RoomManager {
       return true;
     } catch {
       return false;
-    } finally {
-      this.localServerAutoStartPromise = null;
     }
   }
 
@@ -703,8 +719,22 @@ export class RoomManager {
       }
 
       const key = updateKey(payload.update);
-      if (this.recentlySentUpdates.has(key)) {
+      const sentTime = this.recentlySentUpdates.get(key);
+      
+      if (sentTime !== undefined) {
+        // This is an echo of something we sent - skip applying it
         this.recentlySentUpdates.delete(key);
+      }
+      
+      // Clean up expired entries to prevent unbounded growth
+      const now = Date.now();
+      for (const [k, time] of this.recentlySentUpdates.entries()) {
+        if (now - time > RoomManager.RECENTLY_SENT_TTL_MS) {
+          this.recentlySentUpdates.delete(k);
+        }
+      }
+      
+      if (sentTime !== undefined) {
         return;
       }
 
@@ -861,7 +891,7 @@ export class RoomManager {
       }
 
       const key = updateKey(update);
-      this.recentlySentUpdates.add(key);
+      this.recentlySentUpdates.set(key, Date.now());
 
       this.socket.emit(SOCKET_EVENTS.CODE_CHANGE, {
         roomId: this.activeRoomId,

@@ -6,6 +6,9 @@ import { CollaborativePanelProvider } from './webview/panel';
 
 const URI_AUTHORITY = 'publisher.codus';
 
+// Store reference to RoomManager for cleanup on deactivation
+let activeRoomManager: RoomManager | null = null;
+
 export function activate(context: vscode.ExtensionContext): void {
   const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
   statusBarItem.text = '⚠ codus: disconnected';
@@ -47,6 +50,9 @@ export function activate(context: vscode.ExtensionContext): void {
       renderCursors();
     },
   });
+
+  // Store reference for cleanup on deactivation
+  activeRoomManager = roomManager;
 
   panelProvider = new CollaborativePanelProvider(context.extensionUri, {
     onCreateRoom: async (providedUserName?: string) => {
@@ -429,4 +435,9 @@ function tryParseHttpUrl(input: string): string | null {
   }
 }
 
-export function deactivate(): void {}
+export function deactivate(): void {
+  if (activeRoomManager) {
+    void activeRoomManager.dispose();
+    activeRoomManager = null;
+  }
+}

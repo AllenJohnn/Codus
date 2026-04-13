@@ -194,6 +194,11 @@ export class CollaborativePanelProvider implements vscode.WebviewViewProvider {
 
   private getHtml(webview: vscode.Webview): string {
     const templatePath = path.join(this.extensionUri.fsPath, 'src', 'webview', 'index.html');
+    
+    if (!fs.existsSync(templatePath)) {
+      throw new Error(`Webview HTML file not found. Expected: ${templatePath}`);
+    }
+
     const template = fs.readFileSync(templatePath, 'utf8');
     const nonce = createNonce();
 

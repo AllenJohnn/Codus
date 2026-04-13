@@ -2,7 +2,31 @@
 
 All notable changes to this project are documented here.
 
-## [0.2.1] - 2026-04-13
+## [0.3.0] - 2026-04-13
+
+### Added
+- **Production server deployment** at `https://codus.onrender.com`
+- `Codus: Connection Diagnostics` command to verify server connectivity
+- Port fallback logic: server automatically tries ports 10000-10019 if default occupied
+- Room existence validation on join (prevents silent creation of empty rooms on wrong server)
+- Server health check endpoints (`/health` and `/` status)
+
+### Changed
+- **BREAKING**: Default `codus.serverUrl` changed from `http://127.0.0.1:3000` to `https://codus.onrender.com`
+- Users no longer need local server setup for basic collaboration
+- Extension now detects occupied local ports and auto-updates configured server URL
+- Webview visibility improved: better contrast, larger fonts, clearer button states
+- Deep links now preserve server URL context for cross-system room joining
+
+### Fixed
+- Fixed file corruption issue from runaway room sync (active document locked on room join)
+- Multi-system join now returns explicit error instead of creating empty rooms
+- Improved error messaging for connection diagnostics
+
+### Removed
+- Requirement for local Node.js/server for standard usage
+
+## [0.2.2] - 2026-04-13
 
 ### Added
 - Repository integrity checks to catch accidental bulk overwrites of tracked source files.

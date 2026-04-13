@@ -3,7 +3,6 @@ import express from 'express';
 import { Server, Socket } from 'socket.io';
 import { v4 as uuidv4 } from 'uuid';
 import * as Y from 'yjs';
-import { messageSync } from 'y-websocket';
 
 const PORT = Number(process.env.PORT ?? 3000);
 const PORT_EXPLICITLY_SET = typeof process.env.PORT === 'string' && process.env.PORT.trim().length > 0;
@@ -118,7 +117,7 @@ app.get('/', (_req, res) => {
 });
 
 app.get('/health', (_req, res) => {
-  res.json({ ok: true, yWebsocketMessageType: messageSync });
+  res.json({ ok: true });
 });
 
 const server = http.createServer(app);
@@ -126,7 +125,7 @@ const io = new Server<ClientToServerEvents, ServerToClientEvents, object, Socket
   cors: {
     origin: '*',
   },
-  transports: ['websocket'],
+  transports: ['websocket', 'polling'],
 });
 
 const rooms = new Map<string, RoomData>();
@@ -219,7 +218,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on(SOCKET_EVENTS.CREATE_ROOM, (_payload, callback) => {
-    const roomId = generateRoomId();
+    const roomId = generateRoomId().toUpperCase();
     getOrCreateRoom(roomId, socket.id);
     callback({ roomId });
   });
@@ -386,13 +385,19 @@ io.on('connection', (socket) => {
       return;
     }
 
+    // Validate message size (max 1000 characters to prevent abuse)
+    const text = (payload.text || '').trim();
+    if (text.length === 0 || text.length > 1000) {
+      return;
+    }
+
     const message: ChatMessage = {
       id: uuidv4(),
       roomId: payload.roomId,
       authorId: socket.id,
       authorName: user.name,
       authorColor: user.color,
-      text: payload.text,
+      text,
       timestamp: new Date().toISOString(),
     };
 
