@@ -122,6 +122,9 @@ export function activate(context: vscode.ExtensionContext): void {
       panelProvider.setLocalUserId(roomManager.getLocalPeerId());
 
       if (payload.status === 'connected') {
+        if (hadConnectedBefore) {
+          panelProvider.pushSystemMessage('── reconnected ──');
+        }
         hadConnectedBefore = true;
       }
 
@@ -272,9 +275,6 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
     vscode.commands.registerCommand('codus.connectionDiagnostics', async () => {
       await runConnectionDiagnostics();
-    }),
-    vscode.workspace.onDidCloseTextDocument((document) => {
-      roomManager.clearActiveDocumentIfMatches(document.uri.toString());
     }),
     vscode.workspace.onDidChangeTextDocument((event) => roomManager.handleTextDocumentChange(event)),
     vscode.window.onDidChangeTextEditorSelection((event) => {

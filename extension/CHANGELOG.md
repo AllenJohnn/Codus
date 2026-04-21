@@ -2,6 +2,18 @@
 
 All notable changes to this project are documented here.
 
+## [0.5.0] - 2026-04-21
+
+### Changed
+- Updated extension icon artwork for the Codus activity bar and Marketplace listing
+- Chat now sends on Enter (Shift+Enter keeps multiline behavior)
+- Simplified sidebar controls by removing room link and chat insert helper buttons
+- Refined footer styling for a cleaner sidebar presentation
+
+### Fixed
+- Prevented repeated reconnect system messages in chat
+- Hardened active document sync binding to avoid unintended cross-file overwrite behavior
+
 ## [0.4.3] - 2026-04-21
 
 ### Changed

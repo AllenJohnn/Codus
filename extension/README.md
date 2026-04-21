@@ -109,7 +109,14 @@ Rooms are ephemeral: they live in server memory and are destroyed when the last 
 
 ## Changelog
 
-### 0.4.2 — Latest
+### 0.5.0 — Latest
+- Updated Codus extension icon artwork
+- Chat now sends on Enter, with Shift+Enter preserved for multiline messages
+- Removed room link and chat insert helper buttons for a cleaner sidebar flow
+- Reduced reconnect noise by removing repeated reconnect system messages
+- Hardened sync binding behavior to prevent unintended cross-file data replacement
+
+### 0.4.2
 - New black-and-white sidebar UI with cleaner spacing and stronger visual hierarchy
 - Shared extension/server type definitions extracted to a single source of truth
 - Reconnect and room snapshot state handling hardened for stability

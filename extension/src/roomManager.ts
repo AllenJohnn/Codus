@@ -359,12 +359,9 @@ export class RoomManager {
 
     const nextUri = editor.document.uri.toString();
 
-    // Bind a room to a single document to prevent cross-file data loss.
-    // If users switch tabs, we only broadcast file presence for awareness.
-    if (!this.activeDocumentUri) {
-      this.activeDocumentUri = nextUri;
-      void this.syncActiveEditor(editor);
-    } else if (this.activeDocumentUri === nextUri) {
+    // Keep a room bound to a single document to prevent cross-file data loss.
+    // We only sync when the active editor is the bound room document.
+    if (this.activeDocumentUri && this.activeDocumentUri === nextUri) {
       void this.syncActiveEditor(editor);
     }
 
@@ -372,9 +369,9 @@ export class RoomManager {
   }
 
   public clearActiveDocumentIfMatches(uri: string): void {
-    if (this.activeDocumentUri === uri) {
-      this.activeDocumentUri = null;
-    }
+    // Intentionally keep activeDocumentUri pinned for the room lifetime.
+    // Clearing here can cause accidental rebinding and overwrite other files.
+    void uri;
   }
 
   /**
