@@ -17,6 +17,7 @@ const monitoredFiles = [
   path.join('extension', 'src', 'types.ts'),
   path.join('extension', 'src', 'webview', 'index.html'),
   path.join('extension', 'src', 'webview', 'panel.ts'),
+  path.join('shared', 'types.ts'),
   path.join('server', 'package.json'),
   path.join('server', 'tsconfig.json'),
   path.join('server', 'src', 'index.ts'),
@@ -25,9 +26,10 @@ const monitoredFiles = [
 const expectedSignatures = {
   [path.join('extension', 'src', 'extension.ts')]: ['export function activate', 'const URI_AUTHORITY'],
   [path.join('extension', 'src', 'roomManager.ts')]: ['export class RoomManager', 'SOCKET_EVENTS'],
-  [path.join('extension', 'src', 'types.ts')]: ['export const SOCKET_EVENTS'],
+  [path.join('extension', 'src', 'types.ts')]: ["export * from '../../shared/types'"],
   [path.join('extension', 'src', 'webview', 'panel.ts')]: ['export class CollaborativePanelProvider'],
   [path.join('extension', 'src', 'webview', 'index.html')]: ['<!DOCTYPE html>', '<html lang="en">'],
+  [path.join('shared', 'types.ts')]: ['export const SOCKET_EVENTS'],
   [path.join('extension', 'README.md')]: ['# Codus'],
   [path.join('extension', 'CHANGELOG.md')]: ['# Changelog'],
 };
@@ -79,29 +81,38 @@ function assertForbiddenSignatures(filePath, content) {
 }
 
 const hashToFiles = new Map();
+const errors = [];
 
 for (const filePath of monitoredFiles) {
-  const fullPath = path.join(rootDir, filePath);
-  if (!fs.existsSync(fullPath)) {
-    throw new Error(`Missing monitored file: ${filePath}`);
+  try {
+    const fullPath = path.join(rootDir, filePath);
+    if (!fs.existsSync(fullPath)) {
+      throw new Error(`Missing monitored file: ${filePath}`);
+    }
+
+    const content = readFile(filePath);
+    if (!content.trim()) {
+      throw new Error(`Monitored file is empty: ${filePath}`);
+    }
+
+    if (filePath.endsWith('.json')) {
+      validateJson(filePath, content);
+    }
+
+    assertExpectedSignatures(filePath, content);
+    assertForbiddenSignatures(filePath, content);
+
+    const fileHash = hash(content);
+    const existing = hashToFiles.get(fileHash) ?? [];
+    existing.push(filePath);
+    hashToFiles.set(fileHash, existing);
+  } catch (error) {
+    errors.push(error.message);
   }
+}
 
-  const content = readFile(filePath);
-  if (!content.trim()) {
-    throw new Error(`Monitored file is empty: ${filePath}`);
-  }
-
-  if (filePath.endsWith('.json')) {
-    validateJson(filePath, content);
-  }
-
-  assertExpectedSignatures(filePath, content);
-  assertForbiddenSignatures(filePath, content);
-
-  const fileHash = hash(content);
-  const existing = hashToFiles.get(fileHash) ?? [];
-  existing.push(filePath);
-  hashToFiles.set(fileHash, existing);
+if (errors.length > 0) {
+  throw new Error(`Integrity check failed:\n${errors.map((message) => `- ${message}`).join('\n')}`);
 }
 
 const duplicateGroups = Array.from(hashToFiles.values()).filter((group) => group.length > 1);

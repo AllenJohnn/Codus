@@ -2,7 +2,7 @@
   "name": "codus",
   "displayName": "Codus — Collaborative Coding",
   "description": "Real-time collaborative code editing for VS Code. Share a 4-digit room code, sync live with teammates — no account needed.",
-  "version": "0.4.1",
+  "version": "0.4.2",
   "publisher": "AllenJohn",
   "license": "MIT",
   "author": {
@@ -105,9 +105,12 @@
     "vscode:prepublish": "npm run build",
     "build": "npm run typecheck && npm run bundle && npm run bundle:server",
     "typecheck": "tsc -p tsconfig.json --noEmit",
-    "bundle": "esbuild src/extension.ts --bundle --platform=node --format=cjs --external:vscode --outfile=out/extension.js",
+    "bundle": "esbuild src/extension.ts --bundle --platform=node --format=cjs --external:vscode --outfile=out/extension.js && node -e \"const fs=require('fs'),path=require('path');fs.mkdirSync('out/src/webview',{recursive:true});fs.copyFileSync('src/webview/index.html','out/src/webview/index.html');\"",
     "bundle:server": "esbuild ../server/src/index.ts --bundle --platform=node --format=cjs --outfile=out/codus-server.js",
-    "watch": "tsc -p tsconfig.json -w",
+    "watch": "npm run bundle:html && tsc -p tsconfig.json -w",
+    "bundle:html": "node -e \"const fs=require('fs');fs.mkdirSync('out/src/webview',{recursive:true});fs.copyFileSync('src/webview/index.html','out/src/webview/index.html');\"",
+    "lint": "eslint src",
+    "format": "prettier --write src",
     "clean": "node -e \"require('fs').rmSync('out',{recursive:true,force:true})\"",
     "package": "npx @vscode/vsce package --skip-license --no-dependencies"
   },
@@ -117,9 +120,15 @@
     "yjs": "^13.6.26"
   },
   "devDependencies": {
+    "@eslint/js": "^9.25.1",
+    "@typescript-eslint/eslint-plugin": "^8.30.1",
+    "@typescript-eslint/parser": "^8.30.1",
     "@types/node": "^22.15.29",
     "@types/vscode": "^1.88.0",
     "esbuild": "^0.25.4",
+    "eslint": "^9.25.1",
+    "globals": "^16.0.0",
+    "prettier": "^3.5.3",
     "typescript": "^5.8.3"
   }
 }

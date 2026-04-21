@@ -109,7 +109,14 @@ Rooms are ephemeral: they live in server memory and are destroyed when the last 
 
 ## Changelog
 
-### 0.3.0 — Latest
+### 0.4.2 — Latest
+- New black-and-white sidebar UI with cleaner spacing and stronger visual hierarchy
+- Shared extension/server type definitions extracted to a single source of truth
+- Reconnect and room snapshot state handling hardened for stability
+- Improved sync safety to avoid accidental cross-file overwrite scenarios
+- Added ESLint and Prettier tooling for extension and server packages
+
+### 0.3.0
 - Free hosted server at `https://codus.onrender.com` — zero local setup
 - `Codus: Connection Diagnostics` command
 - Fixed WebSocket + polling transport mismatch (works across firewalls and proxies)

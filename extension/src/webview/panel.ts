@@ -20,6 +20,7 @@ type WebviewState = {
   roomState: RoomStatePayload;
   chatMessages: ChatMessage[];
   localUserName: string;
+  localUserId: string | null;
   followedUserId: string | null;
 };
 
@@ -54,6 +55,7 @@ export class CollaborativePanelProvider implements vscode.WebviewViewProvider {
     },
     chatMessages: [],
     localUserName: 'Guest',
+    localUserId: null,
     followedUserId: null,
   };
 
@@ -121,6 +123,11 @@ export class CollaborativePanelProvider implements vscode.WebviewViewProvider {
 
   public setLocalUserName(localUserName: string): void {
     this.state.localUserName = localUserName;
+    this.pushState();
+  }
+
+  public setLocalUserId(localUserId: string | null): void {
+    this.state.localUserId = localUserId;
     this.pushState();
   }
 
@@ -193,10 +200,10 @@ export class CollaborativePanelProvider implements vscode.WebviewViewProvider {
   }
 
   private getHtml(webview: vscode.Webview): string {
-    const templatePath = path.join(this.extensionUri.fsPath, 'src', 'webview', 'index.html');
+    const templatePath = path.join(__dirname, 'src', 'webview', 'index.html');
     
     if (!fs.existsSync(templatePath)) {
-      throw new Error(`Webview HTML file not found. Expected: ${templatePath}`);
+      throw new Error(`Webview HTML file not found at: ${templatePath}. Run 'npm run build' first.`);
     }
 
     const template = fs.readFileSync(templatePath, 'utf8');

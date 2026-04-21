@@ -3,7 +3,7 @@
 		"target": "ES2022",
 		"module": "NodeNext",
 		"lib": ["ES2022"],
-		"rootDir": "src",
+		"rootDir": "..",
 		"strict": true,
 		"esModuleInterop": true,
 		"forceConsistentCasingInFileNames": true,
@@ -11,5 +11,5 @@
 		"moduleResolution": "NodeNext",
 		"types": ["node", "vscode"]
 	},
-	"include": ["src"]
+	"include": ["src", "../shared"]
 }

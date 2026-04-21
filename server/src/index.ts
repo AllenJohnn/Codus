@@ -1,69 +1,28 @@
 import http from 'http';
+import path from 'path';
 import express from 'express';
 import { Server, Socket } from 'socket.io';
 import { v4 as uuidv4 } from 'uuid';
 import * as Y from 'yjs';
+import {
+  ChatMessage,
+  ConnectionStatePayload,
+  CursorPosition,
+  RoomSnapshotPayload,
+  RoomStatePayload,
+  RoomUser,
+  SOCKET_EVENTS,
+} from '../../shared/types';
 
 const PORT = Number(process.env.PORT ?? 3000);
 const PORT_EXPLICITLY_SET = typeof process.env.PORT === 'string' && process.env.PORT.trim().length > 0;
 const ROOM_MIN = 1000;
 const ROOM_MAX = 9999;
-
-const SOCKET_EVENTS = {
-  CREATE_ROOM: 'create-room',
-  JOIN_ROOM: 'join-room',
-  LEAVE_ROOM: 'leave-room',
-  CODE_CHANGE: 'code-change',
-  CURSOR_CHANGE: 'cursor-change',
-  CHAT_MESSAGE: 'chat-message',
-  CONNECTION_STATE: 'connection-state',
-  ROOM_SNAPSHOT: 'room-snapshot',
-  ROOM_STATE: 'room-state',
-  FILE_CHANGE: 'file-change',
-  SET_READONLY: 'set-readonly',
-  READONLY_CHANGED: 'readonly-changed',
-  ROOM_ERROR: 'room-error',
-} as const;
-
-type CursorPosition = {
-  line: number;
-  character: number;
-};
-
-type RoomUser = {
-  id: string;
-  name: string;
-  color: string;
-  cursor?: CursorPosition;
-  currentFile?: string;
-};
-
-type ChatMessage = {
-  id: string;
-  roomId: string;
-  authorId: string;
-  authorName: string;
-  authorColor: string;
-  text: string;
-  timestamp: string;
-  system?: boolean;
-};
-
-type RoomStatePayload = {
-  roomId: string;
-  users: RoomUser[];
-  isReadOnly: boolean;
-};
-
-type ConnectionStatePayload = {
-  status: 'disconnected' | 'connecting' | 'connected' | 'reconnecting' | 'error';
-  roomId: string | null;
-  userCount: number;
-  message?: string;
-};
+const MAX_USERS_PER_ROOM = Number(process.env.MAX_USERS_PER_ROOM ?? 20);
+const CODE_CHANGE_MIN_INTERVAL_MS = 16;
 
 type ServerToClientEvents = {
-  [SOCKET_EVENTS.ROOM_SNAPSHOT]: (payload: { roomId: string; documentState: Uint8Array; users: RoomUser[] }) => void;
+  [SOCKET_EVENTS.ROOM_SNAPSHOT]: (payload: RoomSnapshotPayload) => void;
   [SOCKET_EVENTS.ROOM_STATE]: (payload: RoomStatePayload) => void;
   [SOCKET_EVENTS.CODE_CHANGE]: (payload: { roomId: string; update: Uint8Array }) => void;
   [SOCKET_EVENTS.CURSOR_CHANGE]: (payload: { roomId: string; userId: string; cursor: CursorPosition | null }) => void;
@@ -74,7 +33,10 @@ type ServerToClientEvents = {
 };
 
 type ClientToServerEvents = {
-  [SOCKET_EVENTS.CREATE_ROOM]: (payload: { userName: string }, callback: (response: { roomId: string }) => void) => void;
+  [SOCKET_EVENTS.CREATE_ROOM]: (
+    payload: { userName: string },
+    callback: (response: { roomId: string } | { error: string }) => void,
+  ) => void;
   [SOCKET_EVENTS.JOIN_ROOM]: (
     payload: { roomId: string; userName: string; initialState?: Uint8Array; initialContent?: string },
     callback: (
@@ -95,6 +57,7 @@ type SocketData = {
   roomId?: string;
   userName?: string;
   color?: string;
+  lastCodeChangeAt?: number;
 };
 
 type RoomData = {
@@ -135,20 +98,25 @@ function randomRoomId(): string {
 }
 
 function generateRoomId(): string {
-  let roomId = randomRoomId();
-  while (rooms.has(roomId)) {
-    roomId = randomRoomId();
+  for (let attempt = 0; attempt < ROOM_MAX - ROOM_MIN + 1; attempt += 1) {
+    const roomId = randomRoomId();
+    if (!rooms.has(roomId)) {
+      return roomId;
+    }
   }
-  return roomId;
+
+  throw new Error('No available room IDs. Server is at capacity.');
 }
 
 function buildColor(seed: string): string {
-  let hash = 0;
-  for (const character of seed) {
-    hash = (hash * 31 + character.charCodeAt(0)) % 360;
+  let hash = 5381;
+  for (let index = 0; index < seed.length; index += 1) {
+    hash = ((hash << 5) + hash) ^ seed.charCodeAt(index);
+    hash >>>= 0;
   }
 
-  return `hsl(${hash}, 75%, 55%)`;
+  const hue = hash % 360;
+  return `hsl(${hue}, 70%, 58%)`;
 }
 
 function getOrCreateRoom(roomId: string, creatorId?: string): RoomData {
@@ -218,13 +186,18 @@ io.on('connection', (socket) => {
   });
 
   socket.on(SOCKET_EVENTS.CREATE_ROOM, (_payload, callback) => {
-    const roomId = generateRoomId().toUpperCase();
-    getOrCreateRoom(roomId, socket.id);
-    callback({ roomId });
+    try {
+      // Room IDs are always 4 numeric digits.
+      const roomId = generateRoomId();
+      getOrCreateRoom(roomId, socket.id);
+      callback({ roomId });
+    } catch (error) {
+      callback({ error: error instanceof Error ? error.message : 'Unable to create a room right now.' });
+    }
   });
 
   socket.on(SOCKET_EVENTS.JOIN_ROOM, (payload, callback) => {
-    const roomId = payload.roomId.trim().toUpperCase();
+    const roomId = payload.roomId.trim();
     const userName = payload.userName.trim() || `Guest-${socket.id.slice(0, 4)}`;
 
     const existingRoom = rooms.get(roomId);
@@ -238,6 +211,11 @@ io.on('connection', (socket) => {
     leaveCurrentRoom(socket);
 
     const room = existingRoom;
+    if (room.users.size >= MAX_USERS_PER_ROOM) {
+      callback({ error: `Room ${roomId} is full (max ${MAX_USERS_PER_ROOM} users).` });
+      return;
+    }
+
     if (!room.creatorId) {
       room.creatorId = socket.id;
     }
@@ -280,6 +258,8 @@ io.on('connection', (socket) => {
       roomId,
       documentState: Y.encodeStateAsUpdate(room.doc),
       users,
+      isReadOnly: room.isReadOnly,
+      isCreator: room.creatorId === socket.id,
     });
 
     emitRoomState(room);
@@ -291,7 +271,7 @@ io.on('connection', (socket) => {
     });
   });
 
-  socket.on(SOCKET_EVENTS.LEAVE_ROOM, () => {
+  socket.on(SOCKET_EVENTS.LEAVE_ROOM, (_payload) => {
     const previousRoom = socket.data.roomId;
     leaveCurrentRoom(socket);
 
@@ -307,6 +287,12 @@ io.on('connection', (socket) => {
     if (!room) {
       return;
     }
+
+    const now = Date.now();
+    if ((socket.data.lastCodeChangeAt ?? 0) + CODE_CHANGE_MIN_INTERVAL_MS > now) {
+      return;
+    }
+    socket.data.lastCodeChangeAt = now;
 
     if (room.isReadOnly) {
       socket.emit(SOCKET_EVENTS.ROOM_ERROR, {
@@ -338,8 +324,6 @@ io.on('connection', (socket) => {
       userId: socket.id,
       cursor: payload.cursor,
     });
-
-    emitRoomState(room);
   });
 
   socket.on(SOCKET_EVENTS.FILE_CHANGE, (payload) => {
@@ -353,7 +337,12 @@ io.on('connection', (socket) => {
       return;
     }
 
-    user.currentFile = payload.fileName;
+    const fileName = String(payload.fileName ?? '').trim().replace(/\\/g, '/');
+    if (!fileName || fileName.length > 260 || fileName.includes('..') || path.isAbsolute(fileName)) {
+      return;
+    }
+
+    user.currentFile = fileName;
     room.users.set(socket.id, user);
     emitRoomState(room);
   });
@@ -417,7 +406,7 @@ function listenWithPortFallback(startPort: number): void {
   const tryListen = (attempt: number): void => {
     const port = startPort + attempt;
 
-    const onError = (error: NodeJS.ErrnoException): void => {
+    const onError = (error: Error & { code?: string }): void => {
       server.off('listening', onListening);
 
       if (error.code === 'EADDRINUSE' && attempt + 1 < maxAttempts) {

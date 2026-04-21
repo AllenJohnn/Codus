@@ -2,6 +2,22 @@
 
 All notable changes to this project are documented here.
 
+## [0.4.2] - 2026-04-21
+
+### Added
+- Centralized shared socket event and payload types in `shared/types.ts` for extension/server consistency
+- Package-local ESLint and Prettier setup for both extension and server development workflows
+
+### Changed
+- Refreshed the Codus sidebar webview UI with a cleaner black-and-white professional theme
+- Improved room panel visual hierarchy, spacing, typography, and control consistency
+- Updated integrity checks to include shared types and report all violations in one pass
+
+### Fixed
+- Stabilized reconnect and room snapshot state handling for read-only and creator flags
+- Prevented cross-file sync overwrite scenarios by tightening active document tracking
+- Hardened server-side file path validation, room limits, and code-change rate handling
+
 ## [0.3.0] - 2026-04-13
 
 ### Added

@@ -16,45 +16,8 @@ export function activate(context: vscode.ExtensionContext): void {
 
   const cursorManager = new CursorManager();
 
-  let panelProvider: CollaborativePanelProvider;
-  let hadConnectedBefore = false;
-
-  let previousRoomId: string | null = null;
-  let previousUsers = new Map<string, RoomUser>();
-
-  const roomManager = new RoomManager({
-    onConnectionState: (payload) => {
-      updateStatusBar(statusBarItem, payload);
-
-      if (payload.status === 'connected') {
-        if (hadConnectedBefore) {
-          panelProvider?.pushSystemMessage('── reconnected ──');
-        }
-        hadConnectedBefore = true;
-      }
-
-      panelProvider?.updateConnectionState(payload);
-    },
-    onRoomState: (payload) => {
-      panelProvider?.updateRoomState(payload);
-      emitJoinLeaveNotifications(payload.roomId, payload.users);
-      renderCursors();
-    },
-    onChatMessage: (message) => {
-      panelProvider?.pushChatMessage(message);
-    },
-    onRemoteEdit: () => {
-      renderCursors();
-    },
-    onRemoteCursor: () => {
-      renderCursors();
-    },
-  });
-
-  // Store reference for cleanup on deactivation
-  activeRoomManager = roomManager;
-
-  panelProvider = new CollaborativePanelProvider(context.extensionUri, {
+  let roomManager: RoomManager;
+  const panelProvider = new CollaborativePanelProvider(context.extensionUri, {
     onCreateRoom: async (providedUserName?: string) => {
       try {
         const userName = await resolveUserName(providedUserName, roomManager.getUserName());
@@ -64,6 +27,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
         const roomId = await roomManager.createRoom(userName);
         panelProvider.setLocalUserName(userName);
+        panelProvider.setLocalUserId(roomManager.getLocalPeerId());
         void vscode.window.showInformationMessage(`Created room ${roomId}`);
       } catch (error) {
         void vscode.window.showErrorMessage(getErrorMessage(error));
@@ -84,6 +48,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
         await roomManager.joinRoom(normalized, userName);
         panelProvider.setLocalUserName(userName);
+        panelProvider.setLocalUserId(roomManager.getLocalPeerId());
         void vscode.window.showInformationMessage(`Joined room ${normalized}`);
       } catch (error) {
         void vscode.window.showErrorMessage(getErrorMessage(error));
@@ -145,6 +110,45 @@ export function activate(context: vscode.ExtensionContext): void {
       panelProvider.setFollowedUserId(userId);
     },
   });
+
+  let hadConnectedBefore = false;
+
+  let previousRoomId: string | null = null;
+  let previousUsers = new Map<string, RoomUser>();
+
+  roomManager = new RoomManager({
+    onConnectionState: (payload) => {
+      updateStatusBar(statusBarItem, payload);
+      panelProvider.setLocalUserId(roomManager.getLocalPeerId());
+
+      if (payload.status === 'connected') {
+        if (hadConnectedBefore) {
+          panelProvider.pushSystemMessage('── reconnected ──');
+        }
+        hadConnectedBefore = true;
+      }
+
+      panelProvider.updateConnectionState(payload);
+    },
+    onRoomState: (payload) => {
+      panelProvider.updateRoomState(payload);
+      emitJoinLeaveNotifications(payload.roomId, payload.users);
+      renderCursors();
+      panelProvider.setLocalUserId(roomManager.getLocalPeerId());
+    },
+    onChatMessage: (message) => {
+      panelProvider.pushChatMessage(message);
+    },
+    onRemoteEdit: () => {
+      renderCursors();
+    },
+    onRemoteCursor: () => {
+      renderCursors();
+    },
+  });
+
+  // Store reference for cleanup on deactivation
+  activeRoomManager = roomManager;
 
   function renderCursors(): void {
     const editor = vscode.window.activeTextEditor;
@@ -216,6 +220,7 @@ export function activate(context: vscode.ExtensionContext): void {
   context.subscriptions.push(
     statusBarItem,
     cursorManager,
+    roomManager,
     vscode.window.registerWebviewViewProvider(CollaborativePanelProvider.viewType, panelProvider),
     vscode.commands.registerCommand('codus.createRoom', async () => {
       try {
@@ -270,6 +275,9 @@ export function activate(context: vscode.ExtensionContext): void {
     }),
     vscode.commands.registerCommand('codus.connectionDiagnostics', async () => {
       await runConnectionDiagnostics();
+    }),
+    vscode.workspace.onDidCloseTextDocument((document) => {
+      roomManager.clearActiveDocumentIfMatches(document.uri.toString());
     }),
     vscode.workspace.onDidChangeTextDocument((event) => roomManager.handleTextDocumentChange(event)),
     vscode.window.onDidChangeTextEditorSelection((event) => {
@@ -328,6 +336,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
   roomManager.setActiveEditor(vscode.window.activeTextEditor ?? undefined);
   panelProvider.setLocalUserName(roomManager.getUserName());
+  panelProvider.setLocalUserId(roomManager.getLocalPeerId());
   panelProvider.updateConnectionState({ status: 'disconnected', roomId: null, userCount: 0 });
 }
 

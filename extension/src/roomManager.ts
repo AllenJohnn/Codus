@@ -10,6 +10,7 @@ import {
   ChatMessage,
   ConnectionStatePayload,
   CursorPosition,
+  RoomSnapshotPayload,
   RoomStatePayload,
   RoomUser,
   SOCKET_EVENTS,
@@ -24,7 +25,7 @@ export interface RoomManagerHandlers {
 }
 
 type ServerToClientEvents = {
-  [SOCKET_EVENTS.ROOM_SNAPSHOT]: (payload: { roomId: string; documentState: Uint8Array; users: RoomUser[] }) => void;
+  [SOCKET_EVENTS.ROOM_SNAPSHOT]: (payload: RoomSnapshotPayload) => void;
   [SOCKET_EVENTS.ROOM_STATE]: (payload: { roomId: string; users: RoomUser[]; isReadOnly?: boolean }) => void;
   [SOCKET_EVENTS.CODE_CHANGE]: (payload: { roomId: string; update: Uint8Array }) => void;
   [SOCKET_EVENTS.CURSOR_CHANGE]: (payload: { roomId: string; userId: string; cursor: CursorPosition | null }) => void;
@@ -35,7 +36,10 @@ type ServerToClientEvents = {
 };
 
 type ClientToServerEvents = {
-  [SOCKET_EVENTS.CREATE_ROOM]: (payload: { userName: string }, callback: (response: { roomId: string }) => void) => void;
+  [SOCKET_EVENTS.CREATE_ROOM]: (
+    payload: { userName: string },
+    callback: (response: { roomId: string } | { error: string }) => void,
+  ) => void;
   [SOCKET_EVENTS.JOIN_ROOM]: (
     payload: { roomId: string; userName: string; initialState?: Uint8Array; initialContent?: string },
     callback: (
@@ -166,6 +170,8 @@ export class RoomManager {
 
   private isCreator = false;
 
+  private lastReadOnlyWarnTime = 0;
+
   private isApplyingRemoteUpdate = false;
 
   private readonly suppressedDocumentUris = new Set<string>();
@@ -173,6 +179,8 @@ export class RoomManager {
   // Track recently sent updates with TTL to prevent unbounded growth
   // Map from update key to timestamp of when it was sent (for auto-cleanup after 5 seconds)
   private readonly recentlySentUpdates = new Map<string, number>();
+
+  private readonly recentlySentCleanupTimer: ReturnType<typeof setInterval>;
 
   private static readonly RECENTLY_SENT_TTL_MS = 5000;
 
@@ -192,6 +200,7 @@ export class RoomManager {
 
   public constructor(handlers: RoomManagerHandlers) {
     this.handlers = handlers;
+    this.recentlySentCleanupTimer = setInterval(() => this.cleanupRecentlySentUpdates(), 5000);
   }
 
   public getUserName(): string {
@@ -293,7 +302,11 @@ export class RoomManager {
     }
 
     if (this.isReadOnly) {
-      void vscode.window.showWarningMessage('This room is in read-only mode. The host has locked editing.');
+      const now = Date.now();
+      if (now - this.lastReadOnlyWarnTime > 3000) {
+        this.lastReadOnlyWarnTime = now;
+        void vscode.window.showWarningMessage('This room is in read-only mode. The host has locked editing.');
+      }
       return;
     }
 
@@ -355,7 +368,13 @@ export class RoomManager {
       void this.syncActiveEditor(editor);
     }
 
-    void this.sendFileChange(path.basename(editor.document.fileName));
+    void this.sendFileChange(vscode.workspace.asRelativePath(editor.document.uri, false) || path.basename(editor.document.fileName));
+  }
+
+  public clearActiveDocumentIfMatches(uri: string): void {
+    if (this.activeDocumentUri === uri) {
+      this.activeDocumentUri = null;
+    }
   }
 
   /**
@@ -367,6 +386,7 @@ export class RoomManager {
       await this.leaveRoom();
     }
 
+    clearInterval(this.recentlySentCleanupTimer);
     this.resetSocketConnection();
     this.resetRoomState();
   }
@@ -651,10 +671,7 @@ export class RoomManager {
 
     socket.io.on('reconnect', () => {
       if (this.activeRoomId) {
-        const editor = vscode.window.activeTextEditor;
-        const initialState = encodeText(editor?.document.getText() ?? '');
-        const initialContent = editor?.document.getText() ?? '';
-        void this.joinRoomInternal(this.activeRoomId, this.userName, initialState, initialContent);
+        void this.joinRoomInternal(this.activeRoomId, this.userName, undefined, undefined);
       }
     });
 
@@ -673,11 +690,13 @@ export class RoomManager {
       }
 
       this.roomUsers = payload.users;
+      this.isReadOnly = payload.isReadOnly;
+      this.isCreator = payload.isCreator;
       this.emitRoomState({
         roomId: payload.roomId,
         users: payload.users,
-        isReadOnly: this.isReadOnly,
-        isCreator: this.isCreator,
+        isReadOnly: payload.isReadOnly,
+        isCreator: payload.isCreator,
       });
       await this.applyRemoteUpdate(payload.documentState);
     });
@@ -730,20 +749,11 @@ export class RoomManager {
 
       const key = updateKey(payload.update);
       const sentTime = this.recentlySentUpdates.get(key);
-      
+
       if (sentTime !== undefined) {
-        // This is an echo of something we sent - skip applying it
         this.recentlySentUpdates.delete(key);
       }
-      
-      // Clean up expired entries to prevent unbounded growth
-      const now = Date.now();
-      for (const [k, time] of this.recentlySentUpdates.entries()) {
-        if (now - time > RoomManager.RECENTLY_SENT_TTL_MS) {
-          this.recentlySentUpdates.delete(k);
-        }
-      }
-      
+
       if (sentTime !== undefined) {
         return;
       }
@@ -832,6 +842,11 @@ export class RoomManager {
 
       socket.emit(SOCKET_EVENTS.CREATE_ROOM, { userName }, (response) => {
         clearTimeout(timeout);
+        if ('error' in response) {
+          reject(new Error(response.error));
+          return;
+        }
+
         if (!response.roomId) {
           reject(new Error('Server returned an empty room id.'));
           return;
@@ -917,7 +932,13 @@ export class RoomManager {
 
     this.isApplyingRemoteUpdate = true;
     try {
-      Y.applyUpdate(this.document, update);
+      try {
+        Y.applyUpdate(this.document, update);
+      } catch (error) {
+        console.error('[Codus] Failed to apply remote Yjs update:', error);
+        void vscode.window.showWarningMessage('Codus: received a corrupt update from server. Sync may be out of date.');
+        return;
+      }
       await this.syncActiveEditor();
     } finally {
       this.isApplyingRemoteUpdate = false;
@@ -945,9 +966,19 @@ export class RoomManager {
     this.roomUsers = [];
     this.isReadOnly = false;
     this.isCreator = false;
+    this.lastReadOnlyWarnTime = 0;
     this.document?.destroy();
     this.document = null;
     this.sharedText = null;
     this.recentlySentUpdates.clear();
+  }
+
+  private cleanupRecentlySentUpdates(): void {
+    const now = Date.now();
+    for (const [key, time] of this.recentlySentUpdates.entries()) {
+      if (now - time > RoomManager.RECENTLY_SENT_TTL_MS) {
+        this.recentlySentUpdates.delete(key);
+      }
+    }
   }
 }

@@ -1,4 +1,3 @@
-import * as path from 'path';
 import * as vscode from 'vscode';
 import { RoomUser } from './types';
 
@@ -68,8 +67,8 @@ export class CursorManager implements vscode.Disposable {
       return;
     }
 
-    const currentName = path.basename(currentPath);
-    if (user.currentFile === currentName) {
+    const currentRelativePath = vscode.workspace.asRelativePath(currentPath, false);
+    if (user.currentFile === currentRelativePath) {
       this.followPromptKey = null;
       return;
     }
@@ -89,7 +88,7 @@ export class CursorManager implements vscode.Disposable {
       return;
     }
 
-    const target = await this.findWorkspaceFileByName(user.currentFile);
+    const target = await this.findWorkspaceFileByRelativePath(user.currentFile);
     if (!target) {
       void vscode.window.showWarningMessage(`Could not find ${user.currentFile} in workspace.`);
       return;
@@ -99,8 +98,9 @@ export class CursorManager implements vscode.Disposable {
     await vscode.window.showTextDocument(doc, { preview: false });
   }
 
-  private async findWorkspaceFileByName(fileName: string): Promise<vscode.Uri | undefined> {
-    const matches = await vscode.workspace.findFiles(`**/${fileName}`, '**/node_modules/**', 20);
+  private async findWorkspaceFileByRelativePath(relativePath: string): Promise<vscode.Uri | undefined> {
+    const normalized = relativePath.replace(/\\/g, '/');
+    const matches = await vscode.workspace.findFiles(`**/${normalized}`, '**/node_modules/**', 20);
     return matches[0];
   }
 
