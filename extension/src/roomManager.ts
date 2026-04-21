@@ -340,12 +340,22 @@ export class RoomManager {
   }
 
   public setActiveEditor(editor: vscode.TextEditor | undefined): void {
-    if (editor && this.activeRoomId) {
-      // Update the sync target to follow active editor, enabling multi-file editing
-      this.activeDocumentUri = editor.document.uri.toString();
-      void this.syncActiveEditor(editor);
-      void this.sendFileChange(path.basename(editor.document.fileName));
+    if (!editor || !this.activeRoomId) {
+      return;
     }
+
+    const nextUri = editor.document.uri.toString();
+
+    // Bind a room to a single document to prevent cross-file data loss.
+    // If users switch tabs, we only broadcast file presence for awareness.
+    if (!this.activeDocumentUri) {
+      this.activeDocumentUri = nextUri;
+      void this.syncActiveEditor(editor);
+    } else if (this.activeDocumentUri === nextUri) {
+      void this.syncActiveEditor(editor);
+    }
+
+    void this.sendFileChange(path.basename(editor.document.fileName));
   }
 
   /**

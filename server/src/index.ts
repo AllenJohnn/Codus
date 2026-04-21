@@ -260,10 +260,12 @@ io.on('connection', (socket) => {
     const sharedText = room.doc.getText('content');
     const docIsEmpty = sharedText.length === 0;
 
-    if (docIsEmpty && payload.initialContent && payload.initialContent.length > 0) {
-      sharedText.insert(0, payload.initialContent);
-    } else if (payload.initialState && payload.initialState.length > 0) {
-      Y.applyUpdate(room.doc, payload.initialState);
+    if (docIsEmpty) {
+      if (payload.initialState && payload.initialState.length > 0) {
+        Y.applyUpdate(room.doc, payload.initialState);
+      } else if (payload.initialContent && payload.initialContent.length > 0) {
+        sharedText.insert(0, payload.initialContent);
+      }
     }
 
     const users = serializeUsers(room);
