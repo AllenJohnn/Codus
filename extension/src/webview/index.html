@@ -555,27 +555,30 @@
 
     .footer {
       margin-top: 8px;
-      padding: 12px;
+      padding: 10px 12px;
       border-top: 1px solid var(--line);
       background: #101010;
-      color: var(--text-muted);
+      color: var(--text-dim);
       text-align: center;
-      line-height: 1.45;
+      line-height: 1.35;
     }
 
     .footer-title {
       color: var(--white);
       font-weight: 700;
       letter-spacing: 0.04em;
-      margin-bottom: 4px;
+      margin-bottom: 2px;
+      font-size: 10px;
+      text-transform: uppercase;
     }
 
     .footer-links {
       display: flex;
       justify-content: center;
-      gap: 10px;
+      gap: 8px;
       flex-wrap: wrap;
-      margin-top: 5px;
+      margin-top: 2px;
+      font-size: 10px;
     }
 
     .footer a {
@@ -592,7 +595,7 @@
     }
 
     .footer-credit {
-      margin-top: 6px;
+      margin-top: 4px;
       font-size: 10px;
       color: var(--text-muted);
     }
@@ -637,7 +640,6 @@
             <button id="readOnlyToggle" class="readonly-btn" type="button">lock room</button>
             <span id="userCount" class="user-badge">0 users</span>
             <button id="copyRoomId" type="button">copy</button>
-            <button id="copyRoomLink" type="button">link</button>
             <button id="leaveRoom" type="button">leave</button>
           </div>
         </div>
@@ -662,12 +664,6 @@
     <section class="section">
       <div class="label">CHAT</div>
       <div id="chatLog"></div>
-
-      <div class="insert-row">
-        <span class="insert-label">insert:</span>
-        <button id="pasteSelectionCode" class="chat-insert" type="button">paste sel</button>
-        <button id="insertCodeBlock" class="chat-insert" type="button">code block</button>
-      </div>
 
       <form id="chatForm" class="chat-send-row">
         <textarea id="chatInput" placeholder="share code, notes, fixes..." maxlength="1000"></textarea>
@@ -705,13 +701,10 @@
     const chatLogEl = document.getElementById('chatLog');
     const chatFormEl = document.getElementById('chatForm');
     const chatInputEl = document.getElementById('chatInput');
-    const insertCodeBlockEl = document.getElementById('insertCodeBlock');
-    const pasteSelectionCodeEl = document.getElementById('pasteSelectionCode');
     const localUserEl = document.getElementById('localUser');
     const joinFormEl = document.getElementById('joinForm');
     const joinCodeEl = document.getElementById('joinCode');
     const copyRoomIdButtonEl = document.getElementById('copyRoomId');
-    const copyRoomLinkButtonEl = document.getElementById('copyRoomLink');
     const waitingTextEl = document.getElementById('waitingText');
     const reconnectBannerEl = document.getElementById('reconnectBanner');
     const readOnlyToggleEl = document.getElementById('readOnlyToggle');
@@ -746,15 +739,6 @@
       }, 1200);
     });
 
-    copyRoomLinkButtonEl.addEventListener('click', () => {
-      vscode.postMessage({ type: 'copyRoomLink' });
-      const previous = copyRoomLinkButtonEl.textContent;
-      copyRoomLinkButtonEl.textContent = 'copied!';
-      setTimeout(() => {
-        copyRoomLinkButtonEl.textContent = previous || 'link';
-      }, 1500);
-    });
-
     readOnlyToggleEl.addEventListener('click', () => {
       const nextValue = !state.roomState.isReadOnly;
       vscode.postMessage({ type: 'setReadOnly', isReadOnly: nextValue });
@@ -774,16 +758,17 @@
       chatInputEl.value = '';
     });
 
-    insertCodeBlockEl.addEventListener('click', () => {
-      const template = '```\n\n```';
-      const caret = insertAtCursor(template);
-      chatInputEl.focus();
-      chatInputEl.setSelectionRange(caret, caret);
-    });
+    chatInputEl.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter') {
+        return;
+      }
 
-    pasteSelectionCodeEl.addEventListener('click', () => {
-      vscode.postMessage({ type: 'insertSelectionAsCode' });
-      chatInputEl.focus();
+      if (event.shiftKey) {
+        return;
+      }
+
+      event.preventDefault();
+      chatFormEl.requestSubmit();
     });
 
     window.addEventListener('message', (event) => {
@@ -1027,13 +1012,11 @@
     render();
   </script>
   <footer class="footer">
-    <div class="footer-title">Codus - Collaborative Coding for VS Code</div>
+    <div class="footer-title">Codus Collaborative Coding</div>
     <div class="footer-links">
       <a href="https://github.com/AllenJohnn" target="_blank" rel="noopener">GitHub</a>
       <span class="footer-sep">-</span>
       <a href="https://linkedin.com/in/allenjohnjoy/" target="_blank" rel="noopener">LinkedIn</a>
-      <span class="footer-sep">-</span>
-      <a href="https://allenjohnnportfolio.vercel.app/" target="_blank" rel="noopener">Portfolio</a>
     </div>
     <div class="footer-credit">Created by Allen John</div>
   </footer>

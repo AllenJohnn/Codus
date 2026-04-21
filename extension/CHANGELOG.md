@@ -2,6 +2,17 @@
 
 All notable changes to this project are documented here.
 
+## [0.4.3] - 2026-04-21
+
+### Changed
+- Chat composer now sends on Enter, while Shift+Enter keeps multiline input behavior
+- Simplified room action bar by removing the room link button
+- Removed chat helper insert controls (`paste sel` and `code block`) for a cleaner compose flow
+- Refined footer layout and typography for a cleaner, more professional sidebar finish
+
+### Fixed
+- Removed repeated reconnect system messages from chat history
+
 ## [0.4.2] - 2026-04-21
 
 ### Added

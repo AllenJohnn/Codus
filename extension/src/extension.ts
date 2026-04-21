@@ -122,9 +122,6 @@ export function activate(context: vscode.ExtensionContext): void {
       panelProvider.setLocalUserId(roomManager.getLocalPeerId());
 
       if (payload.status === 'connected') {
-        if (hadConnectedBefore) {
-          panelProvider.pushSystemMessage('── reconnected ──');
-        }
         hadConnectedBefore = true;
       }
 

@@ -2,7 +2,7 @@
   "name": "codus",
   "displayName": "Codus — Collaborative Coding",
   "description": "Real-time collaborative code editing for VS Code. Share a 4-digit room code, sync live with teammates — no account needed.",
-  "version": "0.4.2",
+  "version": "0.4.3",
   "publisher": "AllenJohn",
   "license": "MIT",
   "author": {
