@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: codus-server
+    env: node
+    rootDir: server
+    buildCommand: npm install && npm run build
+    startCommand: npm run start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production

@@ -34,6 +34,16 @@ const ALLOWED_ORIGINS = (process.env.CODUS_ALLOWED_ORIGINS ?? '*')
 
 const ALLOW_ANY_ORIGIN = ALLOWED_ORIGINS.includes('*');
 
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  process.exit(1);
+});
+
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught Exception:', error);
+  process.exit(1);
+});
+
 type ServerToClientEvents = {
   [SOCKET_EVENTS.ROOM_SNAPSHOT]: (payload: RoomSnapshotPayload) => void;
   [SOCKET_EVENTS.ROOM_STATE]: (payload: RoomStatePayload) => void;
@@ -99,7 +109,7 @@ app.get('/', (_req, res) => {
 });
 
 app.get('/health', (_req, res) => {
-  res.json({ ok: true });
+  res.status(200).json({ status: 'ok', uptime: process.uptime() });
 });
 
 const server = http.createServer(app);
