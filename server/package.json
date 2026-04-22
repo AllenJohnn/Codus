@@ -7,7 +7,7 @@
 		"node": ">=22.0.0"
 	},
 	"scripts": {
-		"build": "tsc -p tsconfig.json",
+		"build": "tsc -p tsconfig.json && node -e \"require('fs').writeFileSync('dist/index.js', \\\"require('./server/src/index.js');\\\")\"",
 		"watch": "tsc -p tsconfig.json -w",
 		"start": "npm run build && node dist/server/src/index.js",
 		"dev": "npm run build && npm run start",
