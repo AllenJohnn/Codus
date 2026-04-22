@@ -67,6 +67,11 @@
         "command": "codus.connectionDiagnostics",
         "title": "Connection Diagnostics",
         "category": "Codus"
+      },
+      {
+        "command": "codus.toggleFollow",
+        "title": "Toggle Follow User",
+        "category": "Codus"
       }
     ],
     "viewsContainers": {
@@ -84,6 +89,11 @@
           "type": "webview",
           "id": "codus.sidebarView",
           "name": "Codus Room"
+        },
+        {
+          "type": "tree",
+          "id": "codusUsersView",
+          "name": "Room Users"
         }
       ]
     },
@@ -92,8 +102,13 @@
       "properties": {
         "codus.serverUrl": {
           "type": "string",
-          "default": "https://codus.onrender.com",
+          "default": "http://localhost:3000",
           "markdownDescription": "URL of the Codus collaboration server. Defaults to the free shared server. [Learn how to self-host](https://github.com/AllenJohnn/Codus#self-hosting)."
+        },
+        "codus.roomToken": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "Optional room token for servers configured with CODUS_ROOM_TOKEN."
         }
       }
     },

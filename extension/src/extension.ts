@@ -8,13 +8,48 @@ const URI_AUTHORITY = 'publisher.codus';
 
 // Store reference to RoomManager for cleanup on deactivation
 let activeRoomManager: RoomManager | null = null;
+let activeCursorManager: CursorManager | null = null;
+
+class RoomUserItem extends vscode.TreeItem {
+  public constructor(public readonly user: RoomUser) {
+    super(user.name, vscode.TreeItemCollapsibleState.None);
+    this.description = user.currentFile ? `editing ${user.currentFile}` : 'online';
+    this.tooltip = `${user.name}${user.currentFile ? `\n${user.currentFile}` : ''}`;
+    this.iconPath = new vscode.ThemeIcon('account');
+  }
+}
+
+class RoomUsersProvider implements vscode.TreeDataProvider<RoomUserItem> {
+  private users: RoomUser[] = [];
+
+  private readonly emitter = new vscode.EventEmitter<RoomUserItem | undefined | null | void>();
+
+  public readonly onDidChangeTreeData = this.emitter.event;
+
+  public setUsers(users: RoomUser[]): void {
+    this.users = users;
+    this.emitter.fire();
+  }
+
+  public getTreeItem(element: RoomUserItem): vscode.TreeItem {
+    return element;
+  }
+
+  public getChildren(): RoomUserItem[] {
+    return this.users.map((user) => new RoomUserItem(user));
+  }
+}
 
 export function activate(context: vscode.ExtensionContext): void {
+  void validateServerConfigurationOnActivation();
+
   const statusBarItem = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
   statusBarItem.text = '⚠ codus: disconnected';
   statusBarItem.show();
 
   const cursorManager = new CursorManager();
+  const usersProvider = new RoomUsersProvider();
+  activeCursorManager = cursorManager;
 
   let roomManager: RoomManager;
   const panelProvider = new CollaborativePanelProvider(context.extensionUri, {
@@ -77,6 +112,7 @@ export function activate(context: vscode.ExtensionContext): void {
       cursorManager.clear();
       cursorManager.setFollowedUser(null);
       panelProvider.setFollowedUserId(null);
+      usersProvider.setUsers([]);
     },
     onSendChatMessage: async (text: string) => {
       await roomManager.sendChatMessage(text);
@@ -133,6 +169,7 @@ export function activate(context: vscode.ExtensionContext): void {
     onRoomState: (payload) => {
       panelProvider.updateRoomState(payload);
       emitJoinLeaveNotifications(payload.roomId, payload.users);
+      usersProvider.setUsers(payload.users);
       renderCursors();
       panelProvider.setLocalUserId(roomManager.getLocalPeerId());
     },
@@ -144,6 +181,9 @@ export function activate(context: vscode.ExtensionContext): void {
     },
     onRemoteCursor: () => {
       renderCursors();
+    },
+    onRoomError: (message) => {
+      void vscode.window.showErrorMessage(message);
     },
   });
 
@@ -163,6 +203,7 @@ export function activate(context: vscode.ExtensionContext): void {
     if (!roomId) {
       previousRoomId = null;
       previousUsers = new Map<string, RoomUser>();
+      usersProvider.setUsers([]);
       return;
     }
 
@@ -186,6 +227,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
     for (const [userId, user] of previousUsers.entries()) {
       if (!currentUsers.has(userId)) {
+        cursorManager.removeUser(userId);
         void vscode.window.showInformationMessage(`${user.name} left the room`);
         panelProvider.pushSystemMessage(`── ${user.name} left ──`);
       }
@@ -217,11 +259,14 @@ export function activate(context: vscode.ExtensionContext): void {
     item.color = new vscode.ThemeColor('statusBarItem.warningForeground');
   }
 
+  let selectionDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+
   context.subscriptions.push(
     statusBarItem,
     cursorManager,
     roomManager,
     vscode.window.registerWebviewViewProvider(CollaborativePanelProvider.viewType, panelProvider),
+    vscode.window.createTreeView('codusUsersView', { treeDataProvider: usersProvider }),
     vscode.commands.registerCommand('codus.createRoom', async () => {
       try {
         const userName = await promptForUserName(roomManager.getUserName());
@@ -268,10 +313,39 @@ export function activate(context: vscode.ExtensionContext): void {
         cursorManager.clear();
         cursorManager.setFollowedUser(null);
         panelProvider.setFollowedUserId(null);
+        usersProvider.setUsers([]);
         void vscode.window.showInformationMessage('Left the current room');
       } catch (error) {
         void vscode.window.showErrorMessage(getErrorMessage(error));
       }
+    }),
+    vscode.commands.registerCommand('codus.toggleFollow', async () => {
+      const users = roomManager.getUsers().filter((user) => user.id !== roomManager.getLocalPeerId());
+      if (users.length === 0) {
+        void vscode.window.showInformationMessage('No remote users available to follow.');
+        return;
+      }
+
+      const followed = cursorManager.getFollowedUserId();
+      const picked = await vscode.window.showQuickPick(
+        users.map((user) => ({
+          label: user.name,
+          description: user.id === followed ? 'Following' : '',
+          user,
+        })),
+        {
+          title: 'Select a user to follow (pick current user again to unfollow)',
+          ignoreFocusOut: true,
+        },
+      );
+
+      if (!picked) {
+        return;
+      }
+
+      const nextFollowedUser = picked.user.id === followed ? null : picked.user.id;
+      cursorManager.setFollowedUser(nextFollowedUser);
+      panelProvider.setFollowedUserId(nextFollowedUser);
     }),
     vscode.commands.registerCommand('codus.connectionDiagnostics', async () => {
       await runConnectionDiagnostics();
@@ -283,10 +357,16 @@ export function activate(context: vscode.ExtensionContext): void {
       }
 
       const selection = event.selections[0];
-      void roomManager.sendCursor({
-        line: selection.active.line,
-        character: selection.active.character,
-      });
+      if (selectionDebounceTimer) {
+        clearTimeout(selectionDebounceTimer);
+      }
+
+      selectionDebounceTimer = setTimeout(() => {
+        void roomManager.sendCursor({
+          line: selection.active.line,
+          character: selection.active.character,
+        });
+      }, 50);
     }),
     vscode.window.onDidChangeActiveTextEditor((editor) => {
       roomManager.setActiveEditor(editor ?? undefined);
@@ -310,7 +390,7 @@ export function activate(context: vscode.ExtensionContext): void {
         if (sharedServer) {
           const parsedServer = tryParseHttpUrl(sharedServer);
           if (parsedServer) {
-            const currentServer = vscode.workspace.getConfiguration('codus').get<string>('serverUrl') ?? 'https://codus.onrender.com';
+            const currentServer = vscode.workspace.getConfiguration('codus').get<string>('serverUrl') ?? 'http://localhost:3000';
             if (currentServer !== parsedServer) {
               const picked = await vscode.window.showInformationMessage(
                 `Use shared Codus server ${parsedServer}?`,
@@ -329,6 +409,11 @@ export function activate(context: vscode.ExtensionContext): void {
         await vscode.commands.executeCommand('codus.joinRoom', room);
       },
     }),
+    new vscode.Disposable(() => {
+      if (selectionDebounceTimer) {
+        clearTimeout(selectionDebounceTimer);
+      }
+    }),
   );
 
   roomManager.setActiveEditor(vscode.window.activeTextEditor ?? undefined);
@@ -344,6 +429,45 @@ function validateRoomId(value: string): string | null {
   }
 
   return null;
+}
+
+async function validateServerConfigurationOnActivation(): Promise<void> {
+  const configured = vscode.workspace.getConfiguration('codus').get<string>('serverUrl') ?? 'http://localhost:3000';
+  const normalized = configured.trim();
+
+  let parsed: URL;
+  try {
+    parsed = new URL(normalized);
+  } catch {
+    const picked = await vscode.window.showErrorMessage(
+      `Codus: invalid codus.serverUrl "${configured}".`,
+      'Open Settings',
+      'Use Localhost',
+    );
+
+    if (picked === 'Open Settings') {
+      await vscode.commands.executeCommand('workbench.action.openSettings', 'codus.serverUrl');
+    }
+    if (picked === 'Use Localhost') {
+      await vscode.workspace.getConfiguration('codus').update('serverUrl', 'http://localhost:3000', vscode.ConfigurationTarget.Global);
+    }
+    return;
+  }
+
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    const picked = await vscode.window.showErrorMessage(
+      `Codus: unsupported server URL protocol ${parsed.protocol}.`,
+      'Open Settings',
+      'Use Localhost',
+    );
+
+    if (picked === 'Open Settings') {
+      await vscode.commands.executeCommand('workbench.action.openSettings', 'codus.serverUrl');
+    }
+    if (picked === 'Use Localhost') {
+      await vscode.workspace.getConfiguration('codus').update('serverUrl', 'http://localhost:3000', vscode.ConfigurationTarget.Global);
+    }
+  }
 }
 
 async function promptForUserName(currentUserName: string): Promise<string | undefined> {
@@ -387,7 +511,7 @@ function getErrorMessage(error: unknown): string {
 }
 
 async function runConnectionDiagnostics(): Promise<void> {
-  const configuredServer = vscode.workspace.getConfiguration('codus').get<string>('serverUrl') ?? 'https://codus.onrender.com';
+  const configuredServer = vscode.workspace.getConfiguration('codus').get<string>('serverUrl') ?? 'http://localhost:3000';
   const normalizedServer = configuredServer.replace(/\/$/, '');
 
   let parsed: URL;
@@ -443,7 +567,13 @@ function tryParseHttpUrl(input: string): string | null {
 
 export function deactivate(): void {
   if (activeRoomManager) {
+    void activeRoomManager.leaveRoom();
     void activeRoomManager.dispose();
     activeRoomManager = null;
+  }
+
+  if (activeCursorManager) {
+    activeCursorManager.dispose();
+    activeCursorManager = null;
   }
 }

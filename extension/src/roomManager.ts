@@ -8,8 +8,11 @@ import * as Y from 'yjs';
 import { v4 as uuidv4 } from 'uuid';
 import {
   ChatMessage,
+  CodeChangePayload,
   ConnectionStatePayload,
   CursorPosition,
+  HeartbeatPayload,
+  RoomErrorCode,
   RoomSnapshotPayload,
   RoomStatePayload,
   RoomUser,
@@ -22,17 +25,19 @@ export interface RoomManagerHandlers {
   onChatMessage: (message: ChatMessage) => void;
   onRemoteEdit: (roomId: string) => void;
   onRemoteCursor: (roomId: string, userId: string) => void;
+  onRoomError: (message: string) => void;
 }
 
 type ServerToClientEvents = {
   [SOCKET_EVENTS.ROOM_SNAPSHOT]: (payload: RoomSnapshotPayload) => void;
   [SOCKET_EVENTS.ROOM_STATE]: (payload: { roomId: string; users: RoomUser[]; isReadOnly?: boolean }) => void;
-  [SOCKET_EVENTS.CODE_CHANGE]: (payload: { roomId: string; update: Uint8Array }) => void;
+  [SOCKET_EVENTS.CODE_CHANGE]: (payload: CodeChangePayload) => void;
   [SOCKET_EVENTS.CURSOR_CHANGE]: (payload: { roomId: string; userId: string; cursor: CursorPosition | null }) => void;
   [SOCKET_EVENTS.CHAT_MESSAGE]: (message: ChatMessage) => void;
   [SOCKET_EVENTS.CONNECTION_STATE]: (payload: ConnectionStatePayload) => void;
   [SOCKET_EVENTS.READONLY_CHANGED]: (payload: { roomId: string; isReadOnly: boolean }) => void;
-  [SOCKET_EVENTS.ROOM_ERROR]: (payload: { roomId: string; code: 'READ_ONLY' | 'UNKNOWN'; message: string }) => void;
+  [SOCKET_EVENTS.ROOM_ERROR]: (payload: { roomId: string; code: RoomErrorCode; message: string }) => void;
+  [SOCKET_EVENTS.HEARTBEAT_PING]: (payload: HeartbeatPayload) => void;
 };
 
 type ClientToServerEvents = {
@@ -41,7 +46,7 @@ type ClientToServerEvents = {
     callback: (response: { roomId: string } | { error: string }) => void,
   ) => void;
   [SOCKET_EVENTS.JOIN_ROOM]: (
-    payload: { roomId: string; userName: string; initialState?: Uint8Array; initialContent?: string },
+    payload: { roomId: string; userName: string; roomToken?: string; initialState?: Uint8Array; initialContent?: string },
     callback: (
       response:
         | { roomId: string; users: RoomUser[]; isReadOnly: boolean; isCreator: boolean }
@@ -49,17 +54,30 @@ type ClientToServerEvents = {
     ) => void,
   ) => void;
   [SOCKET_EVENTS.LEAVE_ROOM]: (payload: { roomId: string }) => void;
-  [SOCKET_EVENTS.CODE_CHANGE]: (payload: { roomId: string; update: Uint8Array }) => void;
+  [SOCKET_EVENTS.CODE_CHANGE]: (payload: CodeChangePayload) => void;
   [SOCKET_EVENTS.CURSOR_CHANGE]: (payload: { roomId: string; cursor: CursorPosition | null }) => void;
   [SOCKET_EVENTS.CHAT_MESSAGE]: (payload: { roomId: string; text: string }) => void;
   [SOCKET_EVENTS.FILE_CHANGE]: (payload: { roomId: string; userId: string; fileName: string }) => void;
   [SOCKET_EVENTS.SET_READONLY]: (payload: { roomId: string; isReadOnly: boolean }) => void;
+  [SOCKET_EVENTS.HEARTBEAT_PONG]: (payload: HeartbeatPayload) => void;
 };
 
 function getFullDocumentRange(document: vscode.TextDocument): vscode.Range {
   const lastLineIndex = Math.max(document.lineCount - 1, 0);
   const lastLine = document.lineAt(lastLineIndex);
   return new vscode.Range(0, 0, lastLineIndex, lastLine.text.length);
+}
+
+function shouldSkipRemoteContent(content: string | null | undefined): boolean {
+  if (content === undefined || content === null) {
+    return true;
+  }
+
+  if (typeof content === 'string' && content.length === 0) {
+    return true;
+  }
+
+  return false;
 }
 
 function encodeText(text: string): Uint8Array {
@@ -150,7 +168,7 @@ export class RoomManager {
 
   private localServerAutoStartAttempted = false;
 
-  private serverUrl = 'https://codus.onrender.com';
+  private serverUrl = 'http://localhost:3000';
 
   private document: Y.Doc | null = null;
 
@@ -174,6 +192,22 @@ export class RoomManager {
 
   private isApplyingRemoteUpdate = false;
 
+  private hasInitialDocumentSync = false;
+
+  private outgoingSequence = 0;
+
+  private lastAppliedSequence = 0;
+
+  private reconnectAttempt = 0;
+
+  private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
+
+  private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+
+  private pendingOutgoingUpdates: Uint8Array[] = [];
+
+  private flushUpdateTimer: ReturnType<typeof setTimeout> | null = null;
+
   private readonly suppressedDocumentUris = new Set<string>();
 
   // Track recently sent updates with TTL to prevent unbounded growth
@@ -183,6 +217,8 @@ export class RoomManager {
   private readonly recentlySentCleanupTimer: ReturnType<typeof setInterval>;
 
   private static readonly RECENTLY_SENT_TTL_MS = 5000;
+
+  private static readonly EDIT_EMIT_DEBOUNCE_MS = 100;
 
   private readonly handlers: RoomManagerHandlers;
 
@@ -262,6 +298,8 @@ export class RoomManager {
 
     this.socket.emit(SOCKET_EVENTS.LEAVE_ROOM, { roomId: this.activeRoomId });
     this.resetRoomState();
+    this.clearReconnectTimer();
+    this.clearFlushUpdateTimer();
     this.emitConnectionState({ status: 'disconnected', roomId: null, userCount: 0 });
   }
 
@@ -294,6 +332,10 @@ export class RoomManager {
 
   public handleTextDocumentChange(event: vscode.TextDocumentChangeEvent): void {
     if (!this.sharedText || !this.activeRoomId || !this.activeDocumentUri) {
+      return;
+    }
+
+    if (!this.hasInitialDocumentSync) {
       return;
     }
 
@@ -332,11 +374,19 @@ export class RoomManager {
       return;
     }
 
+    if (!this.hasInitialDocumentSync) {
+      return;
+    }
+
     if (targetEditor.document.uri.toString() !== this.activeDocumentUri) {
       return;
     }
 
     const sharedValue = this.sharedText.toString();
+    if (shouldSkipRemoteContent(sharedValue)) {
+      return;
+    }
+
     if (targetEditor.document.getText() === sharedValue) {
       return;
     }
@@ -344,9 +394,16 @@ export class RoomManager {
     const documentUri = targetEditor.document.uri.toString();
     this.suppressedDocumentUris.add(documentUri);
     try {
-      await targetEditor.edit((editBuilder) => {
-        editBuilder.replace(getFullDocumentRange(targetEditor.document), sharedValue);
-      });
+      const workspaceEdit = new vscode.WorkspaceEdit();
+      workspaceEdit.replace(targetEditor.document.uri, getFullDocumentRange(targetEditor.document), sharedValue);
+      try {
+        const applied = await vscode.workspace.applyEdit(workspaceEdit);
+        if (!applied) {
+          console.error('[Codus] Failed to apply WorkspaceEdit for remote sync.');
+        }
+      } catch (error) {
+        console.error('[Codus] Error applying WorkspaceEdit for remote sync:', error);
+      }
     } finally {
       this.suppressedDocumentUris.delete(documentUri);
     }
@@ -384,6 +441,9 @@ export class RoomManager {
     }
 
     clearInterval(this.recentlySentCleanupTimer);
+    this.stopHeartbeat();
+    this.clearReconnectTimer();
+    this.clearFlushUpdateTimer();
     this.resetSocketConnection();
     this.resetRoomState();
   }
@@ -411,6 +471,9 @@ export class RoomManager {
     }
 
     this.initializeDocument();
+    this.hasInitialDocumentSync = false;
+    this.lastAppliedSequence = 0;
+    this.outgoingSequence = 0;
     this.activeRoomId = roomId;
     if (!this.activeDocumentUri) {
       this.activeDocumentUri = vscode.window.activeTextEditor?.document.uri.toString() ?? null;
@@ -439,7 +502,7 @@ export class RoomManager {
 
   private async ensureSocket(): Promise<void> {
     const configuredServerUrl =
-      vscode.workspace.getConfiguration('codus').get<string>('serverUrl') ?? 'https://codus.onrender.com';
+      vscode.workspace.getConfiguration('codus').get<string>('serverUrl') ?? 'http://localhost:3000';
 
     if (configuredServerUrl !== this.serverUrl) {
       this.serverUrl = configuredServerUrl;
@@ -451,6 +514,7 @@ export class RoomManager {
       this.socket = io(this.serverUrl, {
         autoConnect: false,
         transports: ['websocket', 'polling'],
+        reconnection: false,
       });
       this.registerSocketHandlers();
     }
@@ -585,6 +649,9 @@ export class RoomManager {
     this.socket.removeAllListeners();
     this.socket.disconnect();
     this.socket = null;
+    this.stopHeartbeat();
+    this.clearReconnectTimer();
+    this.clearFlushUpdateTimer();
   }
 
   private async waitForServerReady(timeoutMs = 15000): Promise<boolean> {
@@ -643,19 +710,31 @@ export class RoomManager {
     const socket = this.socket;
 
     socket.on('connect', () => {
+      this.reconnectAttempt = 0;
+      this.clearReconnectTimer();
+      this.startHeartbeat();
       this.emitConnectionState({
         status: 'connected',
         roomId: this.activeRoomId,
         userCount: this.roomUsers.length,
       });
+
+      if (this.activeRoomId && !this.hasInitialDocumentSync) {
+        void this.joinRoomInternal(this.activeRoomId, this.userName, undefined, undefined);
+      }
     });
 
     socket.on('disconnect', () => {
+      this.stopHeartbeat();
       this.emitConnectionState({
         status: this.activeRoomId ? 'reconnecting' : 'disconnected',
         roomId: this.activeRoomId,
         userCount: this.roomUsers.length,
       });
+
+      if (this.activeRoomId) {
+        this.scheduleReconnect();
+      }
     });
 
     socket.io.on('reconnect_attempt', () => {
@@ -666,12 +745,6 @@ export class RoomManager {
       });
     });
 
-    socket.io.on('reconnect', () => {
-      if (this.activeRoomId) {
-        void this.joinRoomInternal(this.activeRoomId, this.userName, undefined, undefined);
-      }
-    });
-
     socket.on('connect_error', (error: Error) => {
       this.emitConnectionState({
         status: 'error',
@@ -679,6 +752,14 @@ export class RoomManager {
         userCount: this.roomUsers.length,
         message: shouldUsePortMessage(error) ? toServerUnavailableMessage(this.serverUrl) : error.message,
       });
+
+      if (this.activeRoomId) {
+        this.scheduleReconnect();
+      }
+    });
+
+    socket.on(SOCKET_EVENTS.HEARTBEAT_PING, (payload) => {
+      socket.emit(SOCKET_EVENTS.HEARTBEAT_PONG, payload);
     });
 
     socket.on(SOCKET_EVENTS.ROOM_SNAPSHOT, async (payload) => {
@@ -695,7 +776,14 @@ export class RoomManager {
         isReadOnly: payload.isReadOnly,
         isCreator: payload.isCreator,
       });
-      await this.applyRemoteUpdate(payload.documentState);
+
+      this.lastAppliedSequence = payload.sequence ?? 0;
+      this.outgoingSequence = this.lastAppliedSequence;
+      this.hasInitialDocumentSync = true;
+
+      if (payload.hasDocumentState && payload.documentState && payload.documentState.length > 0) {
+        await this.applyRemoteUpdate(payload.documentState);
+      }
     });
 
     socket.on(SOCKET_EVENTS.ROOM_STATE, (payload) => {
@@ -736,11 +824,30 @@ export class RoomManager {
 
       if (payload.code === 'READ_ONLY') {
         void vscode.window.showWarningMessage('This room is in read-only mode. The host has locked editing.');
+        return;
       }
+
+      this.handlers.onRoomError(payload.message);
+      void vscode.window.showErrorMessage(payload.message);
     });
 
     socket.on(SOCKET_EVENTS.CODE_CHANGE, async (payload) => {
       if (payload.roomId !== this.activeRoomId) {
+        return;
+      }
+
+      if (!this.hasInitialDocumentSync) {
+        return;
+      }
+
+      if (payload.sequence <= this.lastAppliedSequence) {
+        return;
+      }
+
+      if (payload.sequence > this.lastAppliedSequence + 1) {
+        // Out-of-order update; rejoin to fetch canonical snapshot.
+        this.hasInitialDocumentSync = false;
+        void this.joinRoomInternal(payload.roomId, this.userName, undefined, undefined);
         return;
       }
 
@@ -756,6 +863,7 @@ export class RoomManager {
       }
 
       await this.applyRemoteUpdate(payload.update);
+      this.lastAppliedSequence = payload.sequence;
       this.handlers.onRemoteEdit(payload.roomId);
     });
 
@@ -881,6 +989,7 @@ export class RoomManager {
         {
           roomId,
           userName,
+          roomToken: vscode.workspace.getConfiguration('codus').get<string>('roomToken')?.trim() || undefined,
           initialState,
           initialContent,
         },
@@ -908,22 +1017,43 @@ export class RoomManager {
     this.sharedText = this.document.getText('content');
 
     this.document.on('update', (update: Uint8Array) => {
-      if (!this.socket || !this.activeRoomId || this.isApplyingRemoteUpdate || this.isReadOnly) {
+      if (!this.socket || !this.activeRoomId || this.isApplyingRemoteUpdate || this.isReadOnly || !this.hasInitialDocumentSync) {
         return;
       }
 
-      const key = updateKey(update);
-      this.recentlySentUpdates.set(key, Date.now());
+      this.pendingOutgoingUpdates.push(update);
+      this.clearFlushUpdateTimer();
+      this.flushUpdateTimer = setTimeout(() => {
+        this.flushPendingUpdates();
+      }, RoomManager.EDIT_EMIT_DEBOUNCE_MS);
+    });
+  }
 
-      this.socket.emit(SOCKET_EVENTS.CODE_CHANGE, {
-        roomId: this.activeRoomId,
-        update,
-      });
+  private flushPendingUpdates(): void {
+    if (!this.socket || !this.activeRoomId || this.pendingOutgoingUpdates.length === 0) {
+      return;
+    }
+
+    const mergedUpdate = Y.mergeUpdates(this.pendingOutgoingUpdates);
+    this.pendingOutgoingUpdates = [];
+
+    const key = updateKey(mergedUpdate);
+    this.recentlySentUpdates.set(key, Date.now());
+    this.outgoingSequence += 1;
+
+    this.socket.emit(SOCKET_EVENTS.CODE_CHANGE, {
+      roomId: this.activeRoomId,
+      update: mergedUpdate,
+      sequence: this.outgoingSequence,
     });
   }
 
   private async applyRemoteUpdate(update: Uint8Array): Promise<void> {
     if (!this.document || !this.sharedText) {
+      return;
+    }
+
+    if (!update || update.length === 0) {
       return;
     }
 
@@ -940,6 +1070,74 @@ export class RoomManager {
     } finally {
       this.isApplyingRemoteUpdate = false;
     }
+  }
+
+  private scheduleReconnect(): void {
+    if (!this.socket || this.socket.connected || this.reconnectTimer) {
+      return;
+    }
+
+    this.reconnectAttempt += 1;
+    const delayMs = Math.min(1000 * 2 ** this.reconnectAttempt, 30000);
+    this.reconnectTimer = setTimeout(() => {
+      this.reconnectTimer = null;
+
+      if (!this.socket || this.socket.connected) {
+        return;
+      }
+
+      this.emitConnectionState({
+        status: 'reconnecting',
+        roomId: this.activeRoomId,
+        userCount: this.roomUsers.length,
+      });
+
+      this.socket.connect();
+    }, delayMs);
+  }
+
+  private clearReconnectTimer(): void {
+    if (!this.reconnectTimer) {
+      return;
+    }
+
+    clearTimeout(this.reconnectTimer);
+    this.reconnectTimer = null;
+  }
+
+  private startHeartbeat(): void {
+    if (!this.socket || this.heartbeatTimer) {
+      return;
+    }
+
+    this.heartbeatTimer = setInterval(() => {
+      if (!this.socket || !this.activeRoomId || !this.socket.connected) {
+        return;
+      }
+
+      this.socket.emit(SOCKET_EVENTS.HEARTBEAT_PONG, {
+        roomId: this.activeRoomId,
+        timestamp: Date.now(),
+      });
+    }, 5000);
+  }
+
+  private stopHeartbeat(): void {
+    if (!this.heartbeatTimer) {
+      return;
+    }
+
+    clearInterval(this.heartbeatTimer);
+    this.heartbeatTimer = null;
+  }
+
+  private clearFlushUpdateTimer(): void {
+    if (!this.flushUpdateTimer) {
+      return;
+    }
+
+    clearTimeout(this.flushUpdateTimer);
+    this.flushUpdateTimer = null;
   }
 
   private emitConnectionState(payload: ConnectionStatePayload): void {
@@ -964,6 +1162,11 @@ export class RoomManager {
     this.isReadOnly = false;
     this.isCreator = false;
     this.lastReadOnlyWarnTime = 0;
+    this.hasInitialDocumentSync = false;
+    this.outgoingSequence = 0;
+    this.lastAppliedSequence = 0;
+    this.pendingOutgoingUpdates = [];
+    this.clearFlushUpdateTimer();
     this.document?.destroy();
     this.document = null;
     this.sharedText = null;

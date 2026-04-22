@@ -6,8 +6,11 @@ import { v4 as uuidv4 } from 'uuid';
 import * as Y from 'yjs';
 import {
   ChatMessage,
+  CodeChangePayload,
   ConnectionStatePayload,
   CursorPosition,
+  HeartbeatPayload,
+  RoomErrorCode,
   RoomSnapshotPayload,
   RoomStatePayload,
   RoomUser,
@@ -20,16 +23,27 @@ const ROOM_MIN = 1000;
 const ROOM_MAX = 9999;
 const MAX_USERS_PER_ROOM = Number(process.env.MAX_USERS_PER_ROOM ?? 20);
 const CODE_CHANGE_MIN_INTERVAL_MS = 16;
+const ROOM_TTL_MS = Number(process.env.ROOM_TTL_MS ?? 10 * 60 * 1000);
+const HEARTBEAT_INTERVAL_MS = 5000;
+const HEARTBEAT_TIMEOUT_MS = 12000;
+const ROOM_TOKEN = process.env.CODUS_ROOM_TOKEN?.trim();
+const ALLOWED_ORIGINS = (process.env.CODUS_ALLOWED_ORIGINS ?? '*')
+  .split(',')
+  .map((origin) => origin.trim())
+  .filter((origin) => origin.length > 0);
+
+const ALLOW_ANY_ORIGIN = ALLOWED_ORIGINS.includes('*');
 
 type ServerToClientEvents = {
   [SOCKET_EVENTS.ROOM_SNAPSHOT]: (payload: RoomSnapshotPayload) => void;
   [SOCKET_EVENTS.ROOM_STATE]: (payload: RoomStatePayload) => void;
-  [SOCKET_EVENTS.CODE_CHANGE]: (payload: { roomId: string; update: Uint8Array }) => void;
+  [SOCKET_EVENTS.CODE_CHANGE]: (payload: CodeChangePayload) => void;
   [SOCKET_EVENTS.CURSOR_CHANGE]: (payload: { roomId: string; userId: string; cursor: CursorPosition | null }) => void;
   [SOCKET_EVENTS.CHAT_MESSAGE]: (message: ChatMessage) => void;
   [SOCKET_EVENTS.CONNECTION_STATE]: (payload: ConnectionStatePayload) => void;
   [SOCKET_EVENTS.READONLY_CHANGED]: (payload: { roomId: string; isReadOnly: boolean }) => void;
-  [SOCKET_EVENTS.ROOM_ERROR]: (payload: { roomId: string; code: 'READ_ONLY' | 'UNKNOWN'; message: string }) => void;
+  [SOCKET_EVENTS.ROOM_ERROR]: (payload: { roomId: string; code: RoomErrorCode; message: string }) => void;
+  [SOCKET_EVENTS.HEARTBEAT_PING]: (payload: HeartbeatPayload) => void;
 };
 
 type ClientToServerEvents = {
@@ -38,7 +52,7 @@ type ClientToServerEvents = {
     callback: (response: { roomId: string } | { error: string }) => void,
   ) => void;
   [SOCKET_EVENTS.JOIN_ROOM]: (
-    payload: { roomId: string; userName: string; initialState?: Uint8Array; initialContent?: string },
+    payload: { roomId: string; userName: string; roomToken?: string; initialState?: Uint8Array; initialContent?: string },
     callback: (
       response:
         | { roomId: string; users: RoomUser[]; isReadOnly: boolean; isCreator: boolean }
@@ -46,11 +60,12 @@ type ClientToServerEvents = {
     ) => void,
   ) => void;
   [SOCKET_EVENTS.LEAVE_ROOM]: (payload: { roomId: string }) => void;
-  [SOCKET_EVENTS.CODE_CHANGE]: (payload: { roomId: string; update: Uint8Array }) => void;
+  [SOCKET_EVENTS.CODE_CHANGE]: (payload: CodeChangePayload) => void;
   [SOCKET_EVENTS.CURSOR_CHANGE]: (payload: { roomId: string; cursor: CursorPosition | null }) => void;
   [SOCKET_EVENTS.CHAT_MESSAGE]: (payload: { roomId: string; text: string }) => void;
   [SOCKET_EVENTS.FILE_CHANGE]: (payload: { roomId: string; userId: string; fileName: string }) => void;
   [SOCKET_EVENTS.SET_READONLY]: (payload: { roomId: string; isReadOnly: boolean }) => void;
+  [SOCKET_EVENTS.HEARTBEAT_PONG]: (payload: HeartbeatPayload) => void;
 };
 
 type SocketData = {
@@ -64,9 +79,13 @@ type RoomData = {
   id: string;
   doc: Y.Doc;
   users: Map<string, RoomUser>;
+  presence: Map<string, number>;
   refs: number;
   isReadOnly: boolean;
   creatorId: string;
+  sequence: number;
+  heartbeatTimer: ReturnType<typeof setInterval> | null;
+  expiryTimer: ReturnType<typeof setTimeout> | null;
 };
 
 const app = express();
@@ -86,7 +105,14 @@ app.get('/health', (_req, res) => {
 const server = http.createServer(app);
 const io = new Server<ClientToServerEvents, ServerToClientEvents, object, SocketData>(server, {
   cors: {
-    origin: '*',
+    origin: (origin, callback) => {
+      if (ALLOW_ANY_ORIGIN || !origin || ALLOWED_ORIGINS.includes(origin)) {
+        callback(null, true);
+        return;
+      }
+
+      callback(new Error('CORS origin not allowed'));
+    },
   },
   transports: ['websocket', 'polling'],
 });
@@ -129,14 +155,94 @@ function getOrCreateRoom(roomId: string, creatorId?: string): RoomData {
     id: roomId,
     doc: new Y.Doc(),
     users: new Map<string, RoomUser>(),
+    presence: new Map<string, number>(),
     refs: 0,
     isReadOnly: false,
     creatorId: creatorId ?? '',
+    sequence: 0,
+    heartbeatTimer: null,
+    expiryTimer: null,
   };
 
   room.doc.getText('content');
   rooms.set(roomId, room);
   return room;
+}
+
+function destroyRoom(room: RoomData): void {
+  if (room.heartbeatTimer) {
+    clearInterval(room.heartbeatTimer);
+    room.heartbeatTimer = null;
+  }
+
+  if (room.expiryTimer) {
+    clearTimeout(room.expiryTimer);
+    room.expiryTimer = null;
+  }
+
+  room.doc.destroy();
+  rooms.delete(room.id);
+}
+
+function scheduleRoomExpiry(room: RoomData): void {
+  if (room.expiryTimer) {
+    clearTimeout(room.expiryTimer);
+  }
+
+  room.expiryTimer = setTimeout(() => {
+    if (room.users.size === 0 && room.refs === 0) {
+      destroyRoom(room);
+    }
+  }, ROOM_TTL_MS);
+}
+
+function clearRoomExpiry(room: RoomData): void {
+  if (!room.expiryTimer) {
+    return;
+  }
+
+  clearTimeout(room.expiryTimer);
+  room.expiryTimer = null;
+}
+
+function touchPresence(room: RoomData, userId: string): void {
+  room.presence.set(userId, Date.now());
+}
+
+function startHeartbeat(room: RoomData): void {
+  if (room.heartbeatTimer) {
+    return;
+  }
+
+  room.heartbeatTimer = setInterval(() => {
+    const now = Date.now();
+    const staleUsers: string[] = [];
+
+    for (const [userId, lastSeenAt] of room.presence.entries()) {
+      if (now - lastSeenAt > HEARTBEAT_TIMEOUT_MS) {
+        staleUsers.push(userId);
+      }
+    }
+
+    for (const userId of staleUsers) {
+      room.presence.delete(userId);
+      room.users.delete(userId);
+      room.refs = Math.max(0, room.refs - 1);
+      io.sockets.sockets.get(userId)?.leave(room.id);
+    }
+
+    if (staleUsers.length > 0) {
+      emitRoomState(room);
+      if (room.users.size === 0) {
+        scheduleRoomExpiry(room);
+      }
+    }
+
+    io.to(room.id).emit(SOCKET_EVENTS.HEARTBEAT_PING, {
+      roomId: room.id,
+      timestamp: now,
+    });
+  }, HEARTBEAT_INTERVAL_MS);
 }
 
 function serializeUsers(room: RoomData): RoomUser[] {
@@ -166,11 +272,14 @@ function leaveCurrentRoom(socket: Socket<ClientToServerEvents, ServerToClientEve
   }
 
   room.users.delete(socket.id);
+  room.presence.delete(socket.id);
   room.refs = Math.max(0, room.refs - 1);
 
+  if (room.users.size === 0) {
+    scheduleRoomExpiry(room);
+  }
+
   if (room.users.size === 0 && room.refs === 0) {
-    room.doc.destroy();
-    rooms.delete(room.id);
     return room;
   }
 
@@ -200,8 +309,33 @@ io.on('connection', (socket) => {
     const roomId = payload.roomId.trim();
     const userName = payload.userName.trim() || `Guest-${socket.id.slice(0, 4)}`;
 
+    if (ROOM_TOKEN && payload.roomToken !== ROOM_TOKEN) {
+      socket.emit(SOCKET_EVENTS.ROOM_ERROR, {
+        roomId,
+        code: 'UNKNOWN',
+        message: 'Room token is invalid for this server.',
+      });
+      callback({ error: 'Room token is invalid for this server.' });
+      return;
+    }
+
+    if (!/^\d{4}$/.test(roomId)) {
+      socket.emit(SOCKET_EVENTS.ROOM_ERROR, {
+        roomId,
+        code: 'INVALID_ROOM',
+        message: 'Room code must be exactly 4 digits.',
+      });
+      callback({ error: 'Room code must be exactly 4 digits.' });
+      return;
+    }
+
     const existingRoom = rooms.get(roomId);
     if (!existingRoom) {
+      socket.emit(SOCKET_EVENTS.ROOM_ERROR, {
+        roomId,
+        code: 'ROOM_NOT_FOUND',
+        message: `Room ${roomId} was not found on this server. Verify codus.serverUrl and room code.`,
+      });
       callback({
         error: `Room ${roomId} was not found on this server. Verify codus.serverUrl and room code.`,
       });
@@ -211,6 +345,8 @@ io.on('connection', (socket) => {
     leaveCurrentRoom(socket);
 
     const room = existingRoom;
+    clearRoomExpiry(room);
+
     if (room.users.size >= MAX_USERS_PER_ROOM) {
       callback({ error: `Room ${roomId} is full (max ${MAX_USERS_PER_ROOM} users).` });
       return;
@@ -233,7 +369,9 @@ io.on('connection', (socket) => {
     };
 
     room.users.set(socket.id, user);
+  touchPresence(room, socket.id);
     room.refs += 1;
+  startHeartbeat(room);
 
     const sharedText = room.doc.getText('content');
     const docIsEmpty = sharedText.length === 0;
@@ -257,6 +395,8 @@ io.on('connection', (socket) => {
     socket.emit(SOCKET_EVENTS.ROOM_SNAPSHOT, {
       roomId,
       documentState: Y.encodeStateAsUpdate(room.doc),
+      hasDocumentState: !docIsEmpty,
+      sequence: room.sequence,
       users,
       isReadOnly: room.isReadOnly,
       isCreator: room.creatorId === socket.id,
@@ -288,6 +428,8 @@ io.on('connection', (socket) => {
       return;
     }
 
+    touchPresence(room, socket.id);
+
     const now = Date.now();
     if ((socket.data.lastCodeChangeAt ?? 0) + CODE_CHANGE_MIN_INTERVAL_MS > now) {
       return;
@@ -303,7 +445,30 @@ io.on('connection', (socket) => {
       return;
     }
 
+    if (payload.sequence <= room.sequence) {
+      return;
+    }
+
+    if (payload.sequence !== room.sequence + 1) {
+      socket.emit(SOCKET_EVENTS.ROOM_ERROR, {
+        roomId: room.id,
+        code: 'UNKNOWN',
+        message: 'Edit sequence out of order. Resynchronizing room state.',
+      });
+      socket.emit(SOCKET_EVENTS.ROOM_SNAPSHOT, {
+        roomId: room.id,
+        documentState: Y.encodeStateAsUpdate(room.doc),
+        hasDocumentState: true,
+        sequence: room.sequence,
+        users: serializeUsers(room),
+        isReadOnly: room.isReadOnly,
+        isCreator: room.creatorId === socket.id,
+      });
+      return;
+    }
+
     Y.applyUpdate(room.doc, payload.update);
+    room.sequence = payload.sequence;
     socket.to(payload.roomId).emit(SOCKET_EVENTS.CODE_CHANGE, payload);
   });
 
@@ -312,6 +477,8 @@ io.on('connection', (socket) => {
     if (!room) {
       return;
     }
+
+    touchPresence(room, socket.id);
 
     const user = room.users.get(socket.id);
     if (user) {
@@ -331,6 +498,8 @@ io.on('connection', (socket) => {
     if (!room) {
       return;
     }
+
+    touchPresence(room, socket.id);
 
     const user = room.users.get(socket.id);
     if (!user) {
@@ -353,6 +522,8 @@ io.on('connection', (socket) => {
       return;
     }
 
+    touchPresence(room, socket.id);
+
     if (room.creatorId !== socket.id) {
       return;
     }
@@ -370,6 +541,8 @@ io.on('connection', (socket) => {
     if (!room) {
       return;
     }
+
+    touchPresence(room, socket.id);
 
     const user = room.users.get(socket.id);
     if (!user) {
@@ -393,6 +566,15 @@ io.on('connection', (socket) => {
     };
 
     io.to(payload.roomId).emit(SOCKET_EVENTS.CHAT_MESSAGE, message);
+  });
+
+  socket.on(SOCKET_EVENTS.HEARTBEAT_PONG, (payload) => {
+    const room = rooms.get(payload.roomId);
+    if (!room) {
+      return;
+    }
+
+    touchPresence(room, socket.id);
   });
 
   socket.on('disconnect', () => {

@@ -10,6 +10,8 @@ on:
 
 jobs:
   build-and-package:
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     strategy:
       matrix:
         os: [windows-latest, ubuntu-latest]
@@ -22,20 +24,26 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: npm
+          cache-dependency-path: |
+            extension/package-lock.json
 
-      - name: Install dependencies
+      - name: Install extension dependencies
         run: npm ci
+        working-directory: extension
 
-      - name: Verify repository integrity
-        run: npm run verify
+      - name: Verify extension integrity
+        run: node ../scripts/verify-integrity.js
+        working-directory: extension
 
-      - name: Build workspace
+      - name: Build extension
         run: npm run build
+        working-directory: extension
 
       - name: Package extension
-        run: npm run package -w extension -- --out codus-${{ github.run_number }}.vsix
+        run: npm run package -- --out codus-${{ github.run_number }}.vsix
+        working-directory: extension
 
       - name: Upload VSIX artifact
         uses: actions/upload-artifact@v4
