@@ -17,10 +17,10 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v4
 
       - name: Set up Node.js
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: npm
@@ -29,32 +29,27 @@ jobs:
             server/package-lock.json
             extension/package-lock.json
 
-      - name: Install and build shared
+      - name: Build shared
         working-directory: shared
         run: |
-          npm install
+          npm ci
           npm run build
-        continue-on-error: true
-
-      - name: Install server dependencies
-        run: npm ci
-        working-directory: server
 
       - name: Build server
-        run: npm run build
         working-directory: server
-
-      - name: Install extension dependencies
-        run: npm ci
-        working-directory: extension
+        run: |
+          npm ci
+          npm run build
 
       - name: Verify extension integrity
         run: node ../scripts/verify-integrity.js
         working-directory: extension
 
       - name: Build extension
-        run: npm run build
         working-directory: extension
+        run: |
+          npm ci
+          npm run build
 
       - name: Package extension
         run: npm run package -- --out codus-${{ github.run_number }}.vsix

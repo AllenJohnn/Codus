@@ -2,10 +2,14 @@
   "name": "codus-shared",
   "version": "0.1.0",
   "private": true,
-  "main": "dist/types.js",
-  "types": "dist/types.d.ts",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "prepare": "npm run build",
     "prepublishOnly": "npm run build"
   },
   "devDependencies": {

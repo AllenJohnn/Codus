@@ -1,9 +1,6 @@
 import http from 'http';
 import path from 'path';
 import express from 'express';
-import { Server, Socket } from 'socket.io';
-import { v4 as uuidv4 } from 'uuid';
-import * as Y from 'yjs';
 import {
   ChatMessage,
   CodeChangePayload,
@@ -15,7 +12,10 @@ import {
   RoomStatePayload,
   RoomUser,
   SOCKET_EVENTS,
-} from '../../shared/types';
+} from 'codus-shared';
+import { Server, Socket } from 'socket.io';
+import { v4 as uuidv4 } from 'uuid';
+import * as Y from 'yjs';
 
 const PORT = Number(process.env.PORT ?? 3000);
 const PORT_EXPLICITLY_SET = typeof process.env.PORT === 'string' && process.env.PORT.trim().length > 0;
@@ -26,8 +26,8 @@ const CODE_CHANGE_MIN_INTERVAL_MS = 16;
 const ROOM_TTL_MS = Number(process.env.ROOM_TTL_MS ?? 10 * 60 * 1000);
 const HEARTBEAT_INTERVAL_MS = 5000;
 const HEARTBEAT_TIMEOUT_MS = 12000;
-const ROOM_TOKEN = process.env.CODUS_ROOM_TOKEN?.trim();
-const ALLOWED_ORIGINS = (process.env.CODUS_ALLOWED_ORIGINS ?? '*')
+const ROOM_TOKEN = process.env.CODUS_ROOM_TOKEN?.trim() || process.env.ROOM_TOKEN_SECRET?.trim();
+const ALLOWED_ORIGINS = (process.env.CODUS_ALLOWED_ORIGINS ?? process.env.ALLOWED_ORIGINS ?? '*')
   .split(',')
   .map((origin) => origin.trim())
   .filter((origin) => origin.length > 0);

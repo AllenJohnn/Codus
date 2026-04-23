@@ -1,7 +1,7 @@
 import * as vscode from 'vscode';
+import { ConnectionStatePayload, RoomUser } from 'codus-shared';
 import { CursorManager } from './cursorManager';
 import { RoomManager } from './roomManager';
-import { ConnectionStatePayload, RoomUser } from './types';
 import { CollaborativePanelProvider } from './webview/panel';
 
 const URI_AUTHORITY = 'publisher.codus';

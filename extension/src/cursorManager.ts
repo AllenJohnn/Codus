@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { RoomUser } from './types';
+import { RoomUser } from 'codus-shared';
 
 type UserDecoration = {
   decoration: vscode.TextEditorDecorationType;

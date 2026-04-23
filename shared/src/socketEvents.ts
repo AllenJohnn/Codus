@@ -1,0 +1,18 @@
+export const SOCKET_EVENTS = {
+  CREATE_ROOM: 'create-room',
+  JOIN_ROOM: 'join-room',
+  LEAVE_ROOM: 'leave-room',
+  CODE_CHANGE: 'code-change',
+  REQUEST_SNAPSHOT: 'request-snapshot',
+  CURSOR_CHANGE: 'cursor-change',
+  CHAT_MESSAGE: 'chat-message',
+  CONNECTION_STATE: 'connection-state',
+  ROOM_SNAPSHOT: 'room-snapshot',
+  ROOM_STATE: 'room-state',
+  FILE_CHANGE: 'file-change',
+  SET_READONLY: 'set-readonly',
+  READONLY_CHANGED: 'readonly-changed',
+  ROOM_ERROR: 'room-error',
+  HEARTBEAT_PING: 'heartbeat-ping',
+  HEARTBEAT_PONG: 'heartbeat-pong',
+} as const;

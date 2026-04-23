@@ -1,1 +1,1 @@
-export * from '../../shared/types';
+export * from 'codus-shared';

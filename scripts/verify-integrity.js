@@ -26,10 +26,10 @@ const monitoredFiles = [
 const expectedSignatures = {
   [path.join('extension', 'src', 'extension.ts')]: ['export function activate', 'const URI_AUTHORITY'],
   [path.join('extension', 'src', 'roomManager.ts')]: ['export class RoomManager', 'SOCKET_EVENTS'],
-  [path.join('extension', 'src', 'types.ts')]: ["export * from '../../shared/types'"],
+  [path.join('extension', 'src', 'types.ts')]: ["export * from 'codus-shared'"],
   [path.join('extension', 'src', 'webview', 'panel.ts')]: ['export class CollaborativePanelProvider'],
   [path.join('extension', 'src', 'webview', 'index.html')]: ['<!DOCTYPE html>', '<html lang="en">'],
-  [path.join('shared', 'types.ts')]: ['export const SOCKET_EVENTS'],
+  [path.join('shared', 'types.ts')]: ["export * from './src'"],
   [path.join('extension', 'README.md')]: ['# Codus'],
   [path.join('extension', 'CHANGELOG.md')]: ['# Changelog'],
 };

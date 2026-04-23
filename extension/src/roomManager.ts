@@ -3,9 +3,6 @@ import * as net from 'net';
 import { spawn } from 'child_process';
 import * as path from 'path';
 import * as vscode from 'vscode';
-import { io, Socket } from 'socket.io-client';
-import * as Y from 'yjs';
-import { v4 as uuidv4 } from 'uuid';
 import {
   ChatMessage,
   CodeChangePayload,
@@ -17,7 +14,10 @@ import {
   RoomStatePayload,
   RoomUser,
   SOCKET_EVENTS,
-} from './types';
+} from 'codus-shared';
+import { io, Socket } from 'socket.io-client';
+import * as Y from 'yjs';
+import { v4 as uuidv4 } from 'uuid';
 
 export interface RoomManagerHandlers {
   onConnectionState: (payload: ConnectionStatePayload) => void;
