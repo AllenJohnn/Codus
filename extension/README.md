@@ -54,6 +54,7 @@ Access all commands via the Command Palette (`Ctrl+Shift+P` / `Cmd+Shift+P`).
 | Setting | Default | Description |
 |---|---|---|
 | `codus.serverUrl` | `https://codus.onrender.com` | Collaboration server URL. Point this at your own server for a private deployment. |
+| `codus.roomToken` | `` | Optional room token for servers configured with `CODUS_ROOM_TOKEN`. |
 
 ---
 
@@ -76,7 +77,7 @@ Codus connects to `https://codus.onrender.com` out of the box — free, no sign-
 
 Want a private, always-on server for your team? Run your own in minutes.
 
-**Requires:** Node.js 18+
+**Requires:** Node.js 22+
 
 ```bash
 git clone https://github.com/AllenJohnn/Codus.git
@@ -87,7 +88,7 @@ PORT=8080 npm run start -w server  # or pick your own port
 
 Then in VS Code Settings, set `codus.serverUrl` to `http://your-server:3000`.
 
-The server exposes `GET /health → { "ok": true }` for uptime monitoring.
+The server exposes `GET /health` and returns a JSON status payload for uptime monitoring.
 
 ---
 
@@ -109,12 +110,11 @@ Rooms are ephemeral: they live in server memory and are destroyed when the last 
 
 ## Changelog
 
-### 0.5.0 — Latest
-- Updated Codus extension icon artwork
-- Chat now sends on Enter, with Shift+Enter preserved for multiline messages
-- Removed room link and chat insert helper buttons for a cleaner sidebar flow
-- Reduced reconnect noise by removing repeated reconnect system messages
-- Hardened sync binding behavior to prevent unintended cross-file data replacement
+### 0.5.5 — Latest
+- Published shared package wiring (`codus-shared`) for stronger extension/server type consistency
+- Improved release pipeline reliability (stable GitHub Actions versions and cleaner packaging path)
+- Updated setup and self-hosting docs to match the monorepo workflow
+- Added server environment template and health-check aligned deployment defaults
 
 ### 0.4.2
 - New black-and-white sidebar UI with cleaner spacing and stronger visual hierarchy

@@ -1,8 +1,8 @@
 {
   "name": "codus",
   "displayName": "Codus — Collaborative Coding",
-  "description": "Real-time collaborative code editing for VS Code. Share a 4-digit room code, sync live with teammates — no account needed.",
-  "version": "0.5.4",
+  "description": "Real-time collaborative coding in VS Code with shared cursors, room chat, and 4-digit room joins. Use the hosted server or self-host.",
+  "version": "0.5.5",
   "publisher": "AllenJohn",
   "license": "MIT",
   "author": {
@@ -102,7 +102,7 @@
       "properties": {
         "codus.serverUrl": {
           "type": "string",
-          "default": "http://localhost:3000",
+          "default": "https://codus.onrender.com",
           "markdownDescription": "URL of the Codus collaboration server. Defaults to the free shared server. [Learn how to self-host](https://github.com/AllenJohnn/Codus#self-hosting)."
         },
         "codus.roomToken": {

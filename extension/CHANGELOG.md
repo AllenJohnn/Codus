@@ -2,6 +2,16 @@
 
 All notable changes to this project are documented here.
 
+## [0.5.5] - 2026-04-23
+
+### Changed
+- Updated Marketplace README content and setup guidance to match current monorepo workflow
+- Updated extension metadata text for clearer Marketplace positioning
+- Default server setting now points to the hosted Codus server
+
+### Fixed
+- Aligned release packaging and publish flow with local shared dependency layout
+
 ## [0.5.0] - 2026-04-21
 
 ### Changed
